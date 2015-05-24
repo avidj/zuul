@@ -491,6 +491,21 @@ public class LockManagerTest {
   }
 
   @Test
+  public void testHeartbeatTimeout() throws InterruptedException {
+    lm.setSessionTimeout(10);
+    boolean success = lm.multiLock("1", Arrays.asList(key(1), key(2), key(1, 2, 3)), 
+        LockType.WRITE, LockScope.SHALLOW);
+    assertThat(success, is(true));
+    assertThat(lm.getLocks("1"), is(equalTo(ImmutableSet.of(
+        newLock("1", key(1), LockType.WRITE, LockScope.SHALLOW),
+        newLock("1", key(2), LockType.WRITE, LockScope.SHALLOW),
+        newLock("1", key(1, 2, 3), LockType.WRITE, LockScope.SHALLOW)))));
+    
+    Thread.sleep(20);
+    assertThat(lm.getLocks("1"), is(equalTo(Collections.emptySet())));
+  }
+
+  @Test
   public void testHeartbeat() throws InterruptedException {
     lm.setSessionTimeout(10);
     boolean success = lm.multiLock("1", Arrays.asList(key(1), key(2), key(1, 2, 3)), 
@@ -501,8 +516,20 @@ public class LockManagerTest {
         newLock("1", key(2), LockType.WRITE, LockScope.SHALLOW),
         newLock("1", key(1, 2, 3), LockType.WRITE, LockScope.SHALLOW)))));
     
-    Thread.sleep(15);
-    assertThat(lm.getLocks("1"), is(equalTo(Collections.emptySet())));
+    Thread.sleep(5);
+    assertThat(lm.getLocks("1").size(), is(3));
+    lm.heartbeat("1");
+
+    Thread.sleep(5);
+    assertThat(lm.getLocks("1").size(), is(3));
+    lm.heartbeat("1");
+
+    Thread.sleep(5);
+    assertThat(lm.getLocks("1").size(), is(3));
+    lm.heartbeat("1");
+
+    Thread.sleep(5);
+    assertThat(lm.getLocks("1").size(), is(3));
   }
 
   static List<String> key(String first, String... more) {
