@@ -24,15 +24,15 @@ import java.util.TimerTask;
 
 final class SessionTimeoutTask extends TimerTask {
   private final LockManager lm;
-  private final String session;
+  private final Session session;
 
-  SessionTimeoutTask(LockManager lm, String session) {
+  SessionTimeoutTask(LockManager lm, Session session) {
     this.lm = lm;
     this.session = session;
   }
 
   @Override
   public void run() {
-    lm.release(session);
+    lm.release(session.id);
   }
 }

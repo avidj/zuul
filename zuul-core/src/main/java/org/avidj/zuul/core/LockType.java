@@ -41,8 +41,8 @@ public enum LockType {
     dec.dec(root, path);
   }
   
-  boolean lock(LockManager lm, String session, List<String> path, LockScope scope) {
-    return lo.lock(lm, session, path, scope);
+  boolean lock(LockManager lm, Session session, List<String> path, LockScope scope) {
+    return lo.lock(lm, session.id, path, scope);
   }
   
   private interface DecrementPath {

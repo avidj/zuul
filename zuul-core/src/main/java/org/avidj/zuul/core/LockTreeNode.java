@@ -31,7 +31,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.locks.ReentrantLock;
 
-class LockTreeNode {
+public class LockTreeNode {
   // Mutex for lock coupling.
   final ReentrantLock mutex = new ReentrantLock();
   
@@ -63,6 +63,10 @@ class LockTreeNode {
     this.parent = parent;
   }
   
+  public LockTreeNode getChild(String id) {
+    return children.get(id);
+  }
+  
   @Override
   public String toString() {
     return new StringBuilder("Node(")
@@ -79,15 +83,15 @@ class LockTreeNode {
     return exclusiveLock != null;
   }
 
-  public Lock getExclusiveLock() {
+  Lock getExclusiveLock() {
     return exclusiveLock;
   }
 
-  public Set<Lock> getSharedLocks() {
+  Set<Lock> getSharedLocks() {
     return Collections.unmodifiableSet(new HashSet<>(sharedLocks.values()));
   }
 
-  public Lock getLock(String session) {
+  Lock getLock(String session) {
     if ( exclusiveLock != null ) {
       if ( exclusiveLock.session.equals(session) ) {
         return exclusiveLock;
@@ -97,7 +101,7 @@ class LockTreeNode {
     return sharedLocks.get(session);
   }
 
-  public void addLock(Lock lock) {
+  void addLock(Lock lock) {
     if ( lock.type == LockType.WRITE ) {
       Preconditions.checkState(exclusiveLock == null, "exclusive lock already exists");
       exclusiveLock = lock;
@@ -112,7 +116,7 @@ class LockTreeNode {
     assert ( locksCompatible() );
   }
 
-  public void removeLock(Lock lock) {
+  void removeLock(Lock lock) {
     Preconditions.checkArgument(lock != null, "lock must not be null");
     if ( lock.scope == LockScope.DEEP ) {
       deepLocks.remove(lock);
@@ -125,7 +129,7 @@ class LockTreeNode {
     assert ( locksCompatible() );
   }
 
-  public Set<Lock> getDeepLocks() {
+  Set<Lock> getDeepLocks() {
     return Collections.unmodifiableSet(deepLocks);
   }
   
@@ -133,7 +137,7 @@ class LockTreeNode {
     return ( exclusiveLock == null || sharedLocks.isEmpty() );
   }
 
-  public boolean canGetExclusiveLock(String session) {
+  boolean canGetExclusiveLock(String session) {
     // there already is an exclusive lock ...
     if ( exclusiveLock != null ) {
       // ... and it is held by the session

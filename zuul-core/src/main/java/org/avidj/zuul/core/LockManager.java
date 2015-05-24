@@ -39,6 +39,12 @@ import java.util.Set;
 public interface LockManager {
   static final Logger LOG = LoggerFactory.getLogger(LockManager.class);
 
+  public void setSessionTimeout(long sessionTimeout);
+
+  public Session getSession(String id);
+
+  public LockTreeNode getRoot();
+
   /**
    * The set of all locks held by the given session. The result may not be 
    * consistent if there are concurrent calls to {@link #lock(String, List, LockType, LockScope)} or
@@ -78,17 +84,18 @@ public interface LockManager {
    * Lock type and scope may be upgraded as needed. If the lock already exists, it will be reentered
    * and, hence, must be released multiple times as well.
    * 
-   * @param session the session to obtain a lock for, not {@code null}
+   * @param sessionId the session to obtain a lock for, not {@code null}
    * @param path the path of the resource to lock, not {@code null}
    * @param type the lock type, not {@code null}
    * @param scope the lock scope, not {@code null}
    * @return {@code true}, iff the lock attempt was successful
    */
-  public default boolean lock(String session, List<String> path, LockType type, LockScope scope) {
-    Preconditions.checkNotNull(session, "session must not be null");
+  public default boolean lock(String sessionId, List<String> path, LockType type, LockScope scope) {
+    Preconditions.checkNotNull(sessionId, "sessionId must not be null");
     Preconditions.checkNotNull(path, "path must not be null");
     Preconditions.checkNotNull(type, "type must not be null");
     Preconditions.checkNotNull(scope, "scope must not be null");
+    final Session session = getSession(sessionId);
     return type.lock(this, session, path, scope);
   }
 
@@ -99,26 +106,26 @@ public interface LockManager {
    * cannot be obtained this method rolls back all successful locks. This method can be used to 
    * implement two-phase locking.
    * 
-   * @param session the session to obtain a lock for, not {@code null}
+   * @param sessionId the session to obtain a lock for, not {@code null}
    * @param paths the paths of the resources to lock, not {@code null}, and not empty
    * @param type the lock type, not {@code null}
    * @param scope the lock scope, not {@code null}
    * @return {@code true}, iff the lock attempt was successful
    */
   public default boolean multiLock(
-      String session, List<List<String>> paths, LockType type, LockScope scope) {
-    Preconditions.checkNotNull(session, "session must not be null");
+      String sessionId, List<List<String>> paths, LockType type, LockScope scope) {
+    Preconditions.checkNotNull(sessionId, "session must not be null");
     Preconditions.checkNotNull(paths, "paths must not be null");
     Preconditions.checkArgument(!paths.isEmpty(), "paths must not be empty");
     Preconditions.checkNotNull(type, "type must not be null");
     Preconditions.checkNotNull(scope, "scope must not be null");
-    session = session.intern();
+    sessionId = sessionId.intern();
     
     Collections.sort(paths, LockUtils.pathComparator());
     boolean success = true;
     Set<List<String>> obtained = new HashSet<>();
     for ( List<String> path : paths ) {
-      success &= lock(session, path, type, scope);
+      success &= lock(sessionId, path, type, scope);
       if ( success ) {
         obtained.add(path);
       } else {
@@ -127,7 +134,7 @@ public interface LockManager {
     }
     if ( !success ) {
       for ( List<String> path : obtained ) {
-        release(session, path);
+        release(sessionId, path);
       }
     }
     return success;
@@ -177,7 +184,5 @@ public interface LockManager {
    * @param session the session to keep alive
    */
   public void heartbeat(String session);
-
-  void setSessionTimeout(long sessionTimeout);
 
 }

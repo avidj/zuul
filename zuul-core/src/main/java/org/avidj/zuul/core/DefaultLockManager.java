@@ -28,14 +28,13 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.Timer;
-import java.util.TimerTask;
-import java.util.WeakHashMap;
 
 /**
  * This default implementation of the {@link LockManager} interface builds a tree of lock tree nodes
@@ -74,23 +73,45 @@ public class DefaultLockManager implements LockManager {
     }
   };
 
+  private final Map<String, Session> sessions = new HashMap<>();
   private final Timer sessionTimer = new Timer();
-  private final Map<String, SessionTimeoutTask> timerTasks = new WeakHashMap<>();
-  private final Map<String, Set<LockTreeNode>> locksBySession = new WeakHashMap<>();
   private final LockTreeNode root = treeNode(null, null);
   
   private long sessionTimeout = DEFAULT_SESSION_TIMEOUT;
+  
+  @Override
+  public Session getSession(String id) {
+    Session session = sessions.get(id);
+    if ( session != null ) {
+      session.cancelTimeout();
+    }
+    if ( session == null ) {
+      session = new Session(this, id);
+      sessions.put(id, session);
+    }
+    sessionTimer.schedule(session.newTimeoutTask(), sessionTimeout);
+    return session;
+  }
 
   @Override
   public void setSessionTimeout(long sessionTimeout) {
     this.sessionTimeout = sessionTimeout;
   }
-  
+
   @Override
-  public Set<Lock> getLocks(String session) {
-    Set<Lock> locks = new HashSet<>();
-    for ( LockTreeNode node : getLocksBySession(session) ) {
-      Lock lock = node.getLock(session);
+  public LockTreeNode getRoot() {
+    return root;
+  }
+
+  @Override
+  public Set<Lock> getLocks(String id) {
+    final Session session = sessions.get(id);
+    if ( session == null ) {
+      return Collections.emptySet();
+    }
+    final Set<Lock> locks = new HashSet<>();
+    for ( LockTreeNode node : session.getLocks() ) {
+      Lock lock = node.getLock(id);
       if ( lock != null ) {
         locks.add(lock);
       }
@@ -98,46 +119,41 @@ public class DefaultLockManager implements LockManager {
     return Collections.unmodifiableSet(locks);
   }
 
-  private Set<LockTreeNode> getLocksBySession(String session) {
-    Set<LockTreeNode> locks = locksBySession.get(session);
-    if ( locks == null ) {
-      return Collections.emptySet();
+  @Override
+  public void heartbeat(String id) {
+    Session session = sessions.get(id);
+    if ( session != null ) {
+      session.cancelTimeout();
+      sessionTimer.schedule(session.newTimeoutTask(), sessionTimeout);
     }
-    return locks;
   }
 
   @Override
-  public void heartbeat(String session) {
-    TimerTask task = timerTasks.get(session);
-    if ( task != null ) {
-      task.cancel();
-    } else {
-      task = new SessionTimeoutTask(this, session);
-    }
-    sessionTimer.schedule(task, sessionTimeout);
-  }
-
-  @Override
-  public void release(String session) {
-    timerTasks.remove(session);
-    for ( LockTreeNode node : getLocksBySession(session) ) {
-      final Lock lock = node.getLock(session);
-      if ( lock != null ) {
-        node.removeLock(lock);
-        lock.type.decCounts(root, lock.key);
+  public void release(String id) {
+    final Session session = sessions.get(id);
+    if ( session != null ) {
+      sessions.remove(id);
+      session.cancelTimeout();
+      for ( LockTreeNode node : session.getLocks() ) {
+        final Lock lock = node.getLock(session.id);
+        if ( lock != null ) {
+          node.removeLock(lock);
+          lock.type.decCounts(root, lock.key);
+        }
       }
     }
   }
 
   @Override
-  public boolean release(String session, List<String> path) {
-    heartbeat(session);
-    final LockTreeNode node = findExistingNode(session, path);
+  public boolean release(String id, List<String> path) {
+    final Session session = sessions.get(id);
+    
+    final LockTreeNode node = findExistingNode(id, path);
     if ( node == null ) {
       return false;
     }
     try {
-      final Lock lock = node.getLock(session);
+      final Lock lock = node.getLock(id);
       if ( lock == null ) {
         return false;
       }
@@ -146,6 +162,7 @@ public class DefaultLockManager implements LockManager {
       }
       if ( lock.count == 0 ) {
         node.removeLock(lock);
+        session.removeLock(lock.key);
         lock.type.decCounts(root, path);
       }
     } finally {
@@ -156,15 +173,15 @@ public class DefaultLockManager implements LockManager {
   }
 
   @Override
-  public boolean writeLock(String session, List<String> path, LockScope scope) {
-    heartbeat(session);
+  public boolean writeLock(String id, List<String> path, LockScope scope) {
+    final Session session = getSession(id);
 
     // traverse path described by lock
     LockTreeNode prev = null;
     LockTreeNode current = root;
 
     current.mutex.lock();
-    if ( deepLockByOtherSession(current, session, LockType.READ) ) {
+    if ( deepLockByOtherSession(current, id, LockType.READ) ) {
       current.mutex.unlock();
       assert ( invariants(root, path) );
       return false;
@@ -179,7 +196,7 @@ public class DefaultLockManager implements LockManager {
       if ( current != null ) {
         current.mutex.lock();
         prev.mutex.unlock();
-        if ( deepLockByOtherSession(current, session, LockType.READ) ) {
+        if ( deepLockByOtherSession(current, id, LockType.READ) ) {
           current.mutex.unlock();
           LockType.WRITE.decCounts(root, path.subList(0, pos));
           assert ( invariants(root, path) );
@@ -208,15 +225,15 @@ public class DefaultLockManager implements LockManager {
   }
 
   @Override
-  public boolean readLock(String session, List<String> path, LockScope scope) {
-    heartbeat(session);
+  public boolean readLock(String id, List<String> path, LockScope scope) {
+    final Session session = getSession(id);
 
     // traverse path described by lock
     LockTreeNode prev = null;
     LockTreeNode current = root;
 
     current.mutex.lock();
-    if ( deepLockByOtherSession(current, session, LockType.WRITE) ) {
+    if ( deepLockByOtherSession(current, id, LockType.WRITE) ) {
       current.mutex.unlock();
       assert ( invariants(root, path) );
       return false;
@@ -231,7 +248,7 @@ public class DefaultLockManager implements LockManager {
       if ( current != null ) {
         current.mutex.lock();
         prev.mutex.unlock();
-        if ( deepLockByOtherSession(current, session, LockType.WRITE) ) {
+        if ( deepLockByOtherSession(current, id, LockType.WRITE) ) {
           current.mutex.unlock();
           LockType.READ.decCounts(root, path.subList(0, pos));
           assert ( invariants(root, path) );
@@ -260,35 +277,35 @@ public class DefaultLockManager implements LockManager {
   }
 
   private boolean setReadLock(
-      LockTreeNode node, String session, List<String> path, LockScope scope) {
+      LockTreeNode node, Session session, List<String> path, LockScope scope) {
     if ( scope == LockScope.DEEP && node.writes > 0 ) {
       return false;
     }
     final Lock exclusive = node.getExclusiveLock();
-    if ( exclusive != null && !exclusive.session.equals(session) ) {
+    if ( exclusive != null && !exclusive.session.equals(session.id) ) {
       return false;
     }
     
-    final Lock existing = ( exclusive != null ) ? exclusive : node.getLock(session);
+    final Lock existing = ( exclusive != null ) ? exclusive : node.getLock(session.id);
     if ( existing != null ) {
       node.removeLock(existing);
       existing.type.decCounts(root, path);
     }
     
     final Lock newLock = ( existing != null ) 
-        ? existing.readLock(scope) : newLock(session, path, LockType.READ, scope);
+        ? existing.readLock(scope) : newLock(session.id, path, LockType.READ, scope);
     node.addLock(newLock);
-    addLockToSession(session, node);
+    session.addLock(node);
   
     return true;
   }
 
   private boolean setWriteLock(
-      LockTreeNode node, String session, List<String> path, LockScope scope) {
-    if ( !node.canGetExclusiveLock(session) ) {
+      LockTreeNode node, Session session, List<String> path, LockScope scope) {
+    if ( !node.canGetExclusiveLock(session.id) ) {
       return false;
     }
-    final Lock existing = node.getLock(session);
+    final Lock existing = node.getLock(session.id);
     if ( scope == LockScope.DEEP ) {
       if (   ( existing == null && node.locksInSubtree() != 1 ) 
           || ( existing != null && node.locksInSubtree() != 2 ) ) {
@@ -298,8 +315,8 @@ public class DefaultLockManager implements LockManager {
   
     // locking is legal and there is no existing lock for the current session
     if ( existing == null ) {
-      node.addLock(newLock(session, path, LockType.WRITE, scope));
-      addLockToSession(session, node);
+      node.addLock(newLock(session.id, path, LockType.WRITE, scope));
+      session.addLock(node);
       return true;
     }
     
@@ -308,7 +325,7 @@ public class DefaultLockManager implements LockManager {
     existing.type.decCounts(root, path);
     node.removeLock(existing);
     node.addLock(newLock);
-    addLockToSession(session, node);
+    session.addLock(node);
   
     return true;
   }
@@ -335,15 +352,6 @@ public class DefaultLockManager implements LockManager {
       prev.mutex.unlock();
     }
     return current;
-  }
-
-  private void addLockToSession(String session, LockTreeNode node) {
-    Set<LockTreeNode> locks = locksBySession.get(session);
-    if ( locks == null ) {
-      locks = new HashSet<>();
-      locksBySession.put(session, locks);
-    }
-    locks.add(node);
   }
 
   static void visit(LockTreeNode root, List<String> path, LockTreeNodeVisitor visitor) {
