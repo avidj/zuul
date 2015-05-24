@@ -8,9 +8,10 @@
 	  <version>0.0.1-SNAPSHOT</version>
   </parent>
 
-	<name>zuul-core</name>
-	<artifactId>zuul-core</artifactId>
+	<name>zuul-rs</name>
+	<artifactId>zuul-rs</artifactId>
 	<packaging>jar</packaging>
+
 
 	<properties>
 		<compileSource>1.8</compileSource>
@@ -40,10 +41,28 @@
 				<scope>import</scope>
 				<type>pom</type>
 			</dependency>
-		</dependencies>
+		
+      <dependency>
+          <groupId>org.glassfish.jersey</groupId>
+          <artifactId>jersey-bom</artifactId>
+          <version>2.17</version>
+          <type>pom</type>
+          <scope>import</scope>
+      </dependency>
+    </dependencies>
 	</dependencyManagement>
 
 	<dependencies>
+	  <dependency>
+			<groupId>com.sun.jersey</groupId>
+			<artifactId>jersey-core</artifactId>
+			<version>1.19</version>
+		</dependency>
+		<dependency>
+			<groupId>org.avidj</groupId>
+			<artifactId>zuul-core</artifactId>
+			<version>0.0.1-SNAPSHOT</version>
+		</dependency>
 		<dependency>
 			<groupId>org.apache.httpcomponents</groupId>
 			<artifactId>httpclient</artifactId>
