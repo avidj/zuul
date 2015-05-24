@@ -29,10 +29,7 @@ import org.avidj.zuul.core.LockType;
 
 import java.util.Arrays;
 import java.util.Collections;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
-import java.util.Timer;
 
 import javax.ws.rs.DELETE;
 import javax.ws.rs.GET;
@@ -56,6 +53,20 @@ public class LockManagerRs {
     lm.heartbeat(id);
   }
 
+  /**
+   * Obtain, upgrade, or downgrade a lock for the given {@code sesion}. Upgrades and downgrades are
+   * possible along two dimensions: type and scope. Lock types are read ({@literal aka.} shared) and
+   * write ({@literal aka.} exlusive). Lock scopes are shallow and deep. A shallow lock is only with
+   * respect to the specified lock path, a deep lock also locks the whole subtree below that path.
+   * 
+   * @param session the session to lock 
+   * @param pathParam the lock path
+   * @param type the type of lock to obtain, possible values are ({@code r})ead and 
+   *     ({@code w})rite, default is ({@code w})write  
+   * @param scope the scope of lock to obtain, possible values are ({@code s})shallow and 
+   *     ({@code d})eep, default is ({@code d})eep  
+   * @return {@code true}, iff the operation was successful
+   */
   @PUT
   @Path("/s/{id}/{path:.*}")
   public boolean lock(
@@ -69,6 +80,12 @@ public class LockManagerRs {
     return lm.lock(session, path, lockType, lockScope);
   }
 
+  /**
+   * Release the given lock if it is held by the given {@code session}.
+   * @param session the session to release the lock for
+   * @param pathParam the lock path
+   * @return {@code true}, iff the lock was released
+   */
   @DELETE
   @Path("/s/{id}/{path:.*}")
   public boolean lock(
@@ -78,19 +95,32 @@ public class LockManagerRs {
     return lm.release(session, path);
   }
 
+  /**
+   * Select information on all locks held by the given {@code session}.
+   * @param session the session to retrieve lock information about
+   * @return all locks held by the session
+   */
   @GET
   @Path("/s/{id}")
-  public Session getSession(@PathParam("id") String id) {
+  public Session getSession(@PathParam("id") String session) {
 //    // TODO: The result should be represented as a collections of lock trees rooted under session
 //    return lm.getSession(id);
     return null;
   }
 
+  /**
+   * Select information on the locks on the given node and the subtree beneath it. This will 
+   * <em>not</em> include information on deep ancestor locks.
+   * 
+   * @param pathParam the lock path
+   * @return lock information on the node and all nested nodes
+   */
   @GET
-  @Path("/l/{id}")
-  public LockPathComponent getLockTreeNode(@PathParam("id") String id) {
+  @Path("/l/{path:.*}")
+  public LockPathComponent getLockTreeNode(@PathParam("path") String pathParam) {
     // TODO: The result should be single lock tree rooted under id
-    LockTreeNode node = lm.getRoot().getChild(id); // Find a session object
+    final List<String> path = Collections.unmodifiableList(Arrays.asList(pathParam.split("/")));
+    LockTreeNode node = lm.getRoot().getChild(pathParam); // Find a session object
     if ( node == null ) {
       return null;
     }

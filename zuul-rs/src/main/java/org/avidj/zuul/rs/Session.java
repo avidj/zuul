@@ -32,9 +32,6 @@ public class Session {
   private final LockManager lm;
   final String id;
 
-  
-  // TODO: manage locks HERE!
-  
   Session(LockManager lm, String id) {
     assert ( lm != null );
     assert ( id != null );
