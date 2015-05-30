@@ -39,10 +39,10 @@ import javax.ws.rs.PathParam;
 import javax.ws.rs.QueryParam;
 
 @Path("/")
-public class LockManagerRs {
+public class Zuul {
   private final LockManager lm;
   
-  public LockManagerRs(LockManager lm) {
+  public Zuul(LockManager lm) {
     Preconditions.checkNotNull(lm, "Lock manager must not be null");
     this.lm = lm;
   }
