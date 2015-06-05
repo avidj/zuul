@@ -22,10 +22,21 @@ package org.avidj.zuul.rs;
 
 import com.google.common.base.Preconditions;
 
+import org.avidj.zuul.core.DefaultLockManager;
 import org.avidj.zuul.core.LockManager;
 import org.avidj.zuul.core.LockScope;
 import org.avidj.zuul.core.LockTreeNode;
 import org.avidj.zuul.core.LockType;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Controller;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestMethod;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.ResponseBody;
+import org.springframework.web.bind.annotation.ResponseStatus;
+import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.context.WebApplicationContext;
 
 import java.util.Arrays;
 import java.util.Collections;
@@ -38,19 +49,31 @@ import javax.ws.rs.Path;
 import javax.ws.rs.PathParam;
 import javax.ws.rs.QueryParam;
 
-@Path("/")
+//@Path("/")
+@Controller
+@RequestMapping
+//@ResponseStatus
+//@ExceptionHandler
 public class Zuul {
+  private static final String ACK = "ack";
   private final LockManager lm;
   
-  public Zuul(LockManager lm) {
+  @Autowired
+  private WebApplicationContext context;
+  
+  public Zuul() {
+    this.lm = new DefaultLockManager();
     Preconditions.checkNotNull(lm, "Lock manager must not be null");
-    this.lm = lm;
   }
 
-  @GET
-  @Path("/p/{id}")
-  public void ping(@PathParam("id") String id) {
-    lm.heartbeat(id);
+//  @GET
+//  @Path("/p/{id}")
+//  @RequestMapping(value = "/p/{id}", method = RequestMethod.GET)
+  @RequestMapping(value = "/", method = RequestMethod.GET)
+  @ResponseBody
+  public String ping() {//@PathVariable("id") String id) {
+//    lm.heartbeat(id);
+    return ACK;
   }
 
   /**
@@ -67,63 +90,59 @@ public class Zuul {
    *     ({@code d})eep, default is ({@code d})eep  
    * @return {@code true}, iff the operation was successful
    */
-  @PUT
-  @Path("/s/{id}/{path:.*}")
+//  @RequestMapping(value = "/s/{id}/{path:.*}", method = RequestMethod.PUT)
+//  public boolean lock(
+//      @PathVariable("id") String session, 
+//      @PathVariable("path") String pathParam,
+//      @RequestParam("t") String type,
+//      @RequestParam("s") String scope) {
+//    final List<String> path = Collections.unmodifiableList(Arrays.asList(pathParam.split("/")));
+//    final LockType lockType = ( "r".equals(type) ) ? LockType.READ : LockType.WRITE;
+//    final LockScope lockScope = ( "s".equals(scope) ) ? LockScope.SHALLOW : LockScope.DEEP;
+//    return lm.lock(session, path, lockType, lockScope);
+//  }
+//
+//  /**
+//   * Release the given lock if it is held by the given {@code session}.
+//   * @param session the session to release the lock for
+//   * @param pathParam the lock path
+//   * @return {@code true}, iff the lock was released
+//   */
+  @RequestMapping(value = "/s/{id}/{path}", method = RequestMethod.GET)
   public boolean lock(
-      @PathParam("id") String session, 
-      @PathParam("path") String pathParam,
-      @QueryParam("t") String type,
-      @QueryParam("s") String scope) {
-    final List<String> path = Collections.unmodifiableList(Arrays.asList(pathParam.split("/")));
-    final LockType lockType = ( "r".equals(type) ) ? LockType.READ : LockType.WRITE;
-    final LockScope lockScope = ( "s".equals(scope) ) ? LockScope.SHALLOW : LockScope.DEEP;
-    return lm.lock(session, path, lockType, lockScope);
-  }
-
-  /**
-   * Release the given lock if it is held by the given {@code session}.
-   * @param session the session to release the lock for
-   * @param pathParam the lock path
-   * @return {@code true}, iff the lock was released
-   */
-  @DELETE
-  @Path("/s/{id}/{path:.*}")
-  public boolean lock(
-      @PathParam("id") String session, 
-      @PathParam("path") String pathParam) {
+      @PathVariable("id") String session, 
+      @PathVariable("path") String pathParam) {
     final List<String> path = Collections.unmodifiableList(Arrays.asList(pathParam.split("/")));
     return lm.release(session, path);
   }
-
-  /**
-   * Select information on all locks held by the given {@code session}.
-   * @param session the session to retrieve lock information about
-   * @return all locks held by the session
-   */
-  @GET
-  @Path("/s/{id}")
-  public Session getSession(@PathParam("id") String session) {
-//    // TODO: The result should be represented as a collections of lock trees rooted under session
-//    return lm.getSession(id);
-    return null;
-  }
-
-  /**
-   * Select information on the locks on the given node and the subtree beneath it. This will 
-   * <em>not</em> include information on deep ancestor locks.
-   * 
-   * @param pathParam the lock path
-   * @return lock information on the node and all nested nodes
-   */
-  @GET
-  @Path("/l/{path:.*}")
-  public LockPathComponent getLockTreeNode(@PathParam("path") String pathParam) {
-    // TODO: The result should be single lock tree rooted under id
-    final List<String> path = Collections.unmodifiableList(Arrays.asList(pathParam.split("/")));
-    LockTreeNode node = lm.getRoot().getChild(pathParam); // Find a session object
-    if ( node == null ) {
-      return null;
-    }
-    return new LockPathComponent(lm, node);
-  }
+//
+//  /**
+//   * Select information on all locks held by the given {@code session}.
+//   * @param session the session to retrieve lock information about
+//   * @return all locks held by the session
+//   */
+//  @RequestMapping(value = "/s/{id}", method = RequestMethod.GET)
+//  public Session getSession(@PathVariable("id") String session) {
+////    // TODO: The result should be represented as a collections of lock trees rooted under session
+////    return lm.getSession(id);
+//    return null;
+//  }
+//
+//  /**
+//   * Select information on the locks on the given node and the subtree beneath it. This will 
+//   * <em>not</em> include information on deep ancestor locks.
+//   * 
+//   * @param pathParam the lock path
+//   * @return lock information on the node and all nested nodes
+//   */
+//  @RequestMapping(value = "/l/{path:.*}", method = RequestMethod.GET)
+//  public LockPathComponent getLockTreeNode(@PathVariable("path") String pathParam) {
+//    // TODO: The result should be single lock tree rooted under id
+//    final List<String> path = Collections.unmodifiableList(Arrays.asList(pathParam.split("/")));
+//    LockTreeNode node = lm.getRoot().getChild(pathParam); // Find a session object
+//    if ( node == null ) {
+//      return null;
+//    }
+//    return new LockPathComponent(lm, node);
+//  }
 }
