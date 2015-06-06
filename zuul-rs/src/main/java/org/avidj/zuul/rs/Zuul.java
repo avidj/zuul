@@ -20,24 +20,24 @@ package org.avidj.zuul.rs;
  * #L%
  */
 
-import com.google.common.base.Preconditions;
 
-import org.avidj.zuul.core.DefaultLockManager;
 import org.avidj.zuul.core.LockManager;
 import org.avidj.zuul.core.LockScope;
-import org.avidj.zuul.core.LockTreeNode;
 import org.avidj.zuul.core.LockType;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseBody;
-import org.springframework.web.bind.annotation.ResponseStatus;
-import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.context.WebApplicationContext;
 import org.springframework.web.servlet.HandlerMapping;
+import org.springframework.web.util.UriComponents;
+import org.springframework.web.util.UriComponentsBuilder;
 
 import java.util.Arrays;
 import java.util.Collections;
@@ -45,34 +45,18 @@ import java.util.List;
 
 import javax.servlet.http.HttpServletRequest;
 
-//import javax.ws.rs.DELETE;
-//import javax.ws.rs.GET;
-//import javax.ws.rs.PUT;
-//import javax.ws.rs.Path;
-//import javax.ws.rs.PathParam;
-//import javax.ws.rs.QueryParam;
-
-//@Path("/")
 @Controller
 @RequestMapping
-//@ResponseStatus
-//@ExceptionHandler
 public class Zuul {
   private static final String ACK = "ack";
-  private final LockManager lm;
   
   @Autowired
   private WebApplicationContext context;
-  
-  public Zuul() {
-    this.lm = new DefaultLockManager();
-    Preconditions.checkNotNull(lm, "Lock manager must not be null");
-  }
 
-//  @GET
-//  @Path("/p/{id}")
-//  @RequestMapping(value = "/p/{id}", method = RequestMethod.GET)
-  @RequestMapping(value = "/", method = RequestMethod.GET)
+  @Autowired
+  private LockManager lm;
+
+  @RequestMapping(value = "/p/{id}", method = RequestMethod.GET)
   @ResponseBody
   public String ping(@PathVariable("id") String id) {
     lm.heartbeat(id);
@@ -85,42 +69,71 @@ public class Zuul {
    * write ({@literal aka.} exlusive). Lock scopes are shallow and deep. A shallow lock is only with
    * respect to the specified lock path, a deep lock also locks the whole subtree below that path.
    * 
-   * @param session the session to lock 
-   * @param pathParam the lock path
+   * @param id the session to obtain a lock for 
    * @param type the type of lock to obtain, possible values are ({@code r})ead and 
    *     ({@code w})rite, default is ({@code w})write  
    * @param scope the scope of lock to obtain, possible values are ({@code s})shallow and 
    *     ({@code d})eep, default is ({@code d})eep  
+   * @param uriBuilder builder for the result location URI
    * @return {@code true}, iff the operation was successful
    */
   @RequestMapping(value = "/s/{id}/**", method = RequestMethod.PUT)
-  public String lock(
-      @PathVariable("id") String session, 
+  public ResponseEntity<String> lock(
+      @PathVariable("id") String id, 
       @RequestParam(value = "t", defaultValue = "w") String type,
       @RequestParam(value = "s", defaultValue = "s") String scope,
-      HttpServletRequest request) {
+      HttpServletRequest request,
+      UriComponentsBuilder uriBuilder) {
     String matchedPath = 
         (String)request.getAttribute(HandlerMapping.PATH_WITHIN_HANDLER_MAPPING_ATTRIBUTE);
-    final String lockPath = matchedPath.substring(4 + session.length());
+    final String lockPath = matchedPath.substring(4 + id.length());
     final List<String> path = Collections.unmodifiableList(Arrays.asList(lockPath.split("/")));
     final LockType lockType = ( "r".equals(type) ) ? LockType.READ : LockType.WRITE;
     final LockScope lockScope = ( "s".equals(scope) ) ? LockScope.SHALLOW : LockScope.DEEP;
-    return Boolean.toString(lm.lock(session, path, lockType, lockScope));
+    
+    final boolean created = lm.lock(id, path, lockType, lockScope);
+    HttpStatus httpStatus = created ? HttpStatus.CREATED : HttpStatus.FORBIDDEN;
+    
+    UriComponents uriComponents = 
+        uriBuilder.path("/s/{id}/{lockPath}").buildAndExpand(id, lockPath);
+    HttpHeaders headers = new HttpHeaders();
+    headers.setLocation(uriComponents.toUri());
+    return new ResponseEntity<String>(headers, httpStatus);
   }
 
-//  /**
-//   * Release the given lock if it is held by the given {@code session}.
-//   * @param session the session to release the lock for
-//   * @param pathParam the lock path
-//   * @return {@code true}, iff the lock was released
-//   */
-  @RequestMapping(value = "/s/{id}/{path}", method = RequestMethod.GET)
-  public String lock(
-      @PathVariable("id") String session, 
-      @PathVariable("path") String pathParam) {
-    final List<String> path = Collections.unmodifiableList(Arrays.asList(pathParam.split("/")));
-    return Boolean.toString(lm.release(session, path));
+  /**
+   * Release the given lock if it is held by the given {@code session}.
+   * @param session the session to release the lock for
+   * @param pathParam the lock path
+   * @return {@code true}, iff the lock was released
+   */
+  @RequestMapping(value = "/s/{id}/**", method = RequestMethod.DELETE)
+  public ResponseEntity<String> release(
+      @PathVariable("id") String id, 
+      HttpServletRequest request,
+      UriComponentsBuilder uriBuilder) {
+    String matchedPath = 
+        (String)request.getAttribute(HandlerMapping.PATH_WITHIN_HANDLER_MAPPING_ATTRIBUTE);
+    final String lockPath = matchedPath.substring(4 + id.length());
+    final List<String> path = Collections.unmodifiableList(Arrays.asList(lockPath.split("/")));
+    
+    final boolean deleted = lm.release(id, path);
+    HttpStatus httpStatus = deleted ? HttpStatus.NO_CONTENT : HttpStatus.FORBIDDEN;
+    
+    UriComponents uriComponents = 
+        uriBuilder.path("/s/{id}/{lockPath}").buildAndExpand(id, lockPath);
+    HttpHeaders headers = new HttpHeaders();
+    headers.setLocation(uriComponents.toUri());
+    return new ResponseEntity<String>(headers, httpStatus);
   }
+
+  //  @RequestMapping(value = "/s/{id}/{path}", method = RequestMethod.GET)
+//  public String getLocks(
+//      @PathVariable("id") String session, 
+//      @PathVariable("path") String pathParam) {
+//    final List<String> path = Collections.unmodifiableList(Arrays.asList(pathParam.split("/")));
+//    return Boolean.toString(lm.release(session, path));
+//  }
 //
 //  /**
 //   * Select information on all locks held by the given {@code session}.

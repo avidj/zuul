@@ -41,7 +41,6 @@ public class Session {
     assert ( id != null );
     this.lm = lm;
     this.id = id;
-    timeoutTask = new SessionTimeoutTask(lm, this);
   }
   
   public void invalidate() {

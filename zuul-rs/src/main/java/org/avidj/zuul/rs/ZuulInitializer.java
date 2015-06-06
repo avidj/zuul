@@ -59,7 +59,7 @@ public class ZuulInitializer implements WebApplicationInitializer {
     dispatcher.addMapping("/");
   }
 
-  /***
+  /**
    * The root application context, i.e., the components implementing the functionality.
    */
   @Configuration

@@ -26,6 +26,7 @@ import static org.avidj.zuul.core.LockTreeNode.treeNode;
 import org.avidj.util.Strings;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.stereotype.Component;
 
 import java.util.Collections;
 import java.util.HashMap;
@@ -41,9 +42,10 @@ import java.util.Timer;
  * that are traversed using lock coupling. That is, every node has its own mutex which is obtained 
  * when traversing and only released after obtaining the mutex for the nested node on a path. 
  */
+@Component
 public class DefaultLockManager implements LockManager {
   private static final Logger LOG = LoggerFactory.getLogger(DefaultLockManager.class);
-  private static final long DEFAULT_SESSION_TIMEOUT = 500;
+  private static final long DEFAULT_SESSION_TIMEOUT = 50000;
   
   static final LockTreeNodeVisitor DEC_READ_COUNTS = new LockTreeNodeVisitor() {
     @Override
@@ -394,9 +396,27 @@ public class DefaultLockManager implements LockManager {
     return true;
   }
 
+  private static boolean noLoiteringLockNodes(LockTreeNode root, List<String> path) {
+    LockTreeNode current = root;
+    for ( int i = 0, n = path.size(); i < n; i++ ) {
+      String step = path.get(i);
+      current = current.children.get(step);
+      if ( current == null ) {
+        return true;
+      } else if ( !current.hasExclusiveLock() 
+          && current.getSharedLocks().isEmpty() 
+          && current.children.isEmpty() ) {
+        LOG.error("No locks and no children in node: {}", Strings.join(path.subList(0, i + 1)));
+        return false;
+      }
+    }
+    return true;
+  }
+
   private static boolean invariants(LockTreeNode root, List<String> path) {
     return currentThreadHoldsNoLocksOnPath(root, path)
-        && lockCountsAreCorrect(root);
+        && lockCountsAreCorrect(root)
+        && noLoiteringLockNodes(root, path);
   }
 
   private static boolean deepLockByOtherSession(
