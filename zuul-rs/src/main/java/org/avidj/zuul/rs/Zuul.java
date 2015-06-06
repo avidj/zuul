@@ -68,12 +68,12 @@ public class Zuul {
   }
 
   /**
-   * Obtain, upgrade, or downgrade a lock for the given {@code sesion}. Upgrades and downgrades are
+   * Obtain, upgrade, or downgrade a lock for the given {@code session}. Upgrades and downgrades are
    * possible along two dimensions: type and scope. Lock types are read ({@literal aka.} shared) and
    * write ({@literal aka.} exlusive). Lock scopes are shallow and deep. A shallow lock is only with
    * respect to the specified lock path, a deep lock also locks the whole subtree below that path.
    * 
-   * @param id the session to obtain a lock for 
+   * @param session the session to obtain a lock for 
    * @param type the type of lock to obtain, possible values are ({@code r})ead and 
    *     ({@code w})rite, default is ({@code w})write  
    * @param scope the scope of lock to obtain, possible values are ({@code s})shallow and 
@@ -83,60 +83,71 @@ public class Zuul {
    */
   @RequestMapping(value = "/s/{id}/**", method = RequestMethod.PUT)
   public ResponseEntity<String> lock(
-      @PathVariable("id") String id, 
+      @PathVariable("id") String session, 
       @RequestParam(value = "t", defaultValue = "w") String type,
       @RequestParam(value = "s", defaultValue = "s") String scope,
       HttpServletRequest request,
       UriComponentsBuilder uriBuilder) {
-    String matchedPath = 
-        (String)request.getAttribute(HandlerMapping.PATH_WITHIN_HANDLER_MAPPING_ATTRIBUTE);
-    final String lockPath = matchedPath.substring(4 + id.length());
-    final List<String> path = toLockPath(lockPath);
-    final LockType lockType = ( "r".equals(type) ) ? LockType.READ : LockType.WRITE;
-    final LockScope lockScope = ( "s".equals(scope) ) ? LockScope.SHALLOW : LockScope.DEEP;
+    final String lockPathParam = getLockPathParam(request, 4 + session.length()); 
+    final List<String> path = getLockPath(lockPathParam);
+    final LockType lockType = getLockType(type);
+    final LockScope lockScope = getLockScope(scope);
     
-    final boolean created = lm.lock(id, path, lockType, lockScope);
+    final boolean created = lm.lock(session, path, lockType, lockScope);
     HttpStatus httpStatus = created ? HttpStatus.CREATED : HttpStatus.FORBIDDEN;
     
     UriComponents uriComponents = 
-        uriBuilder.path("/s/{id}/{lockPath}").buildAndExpand(id, lockPath);
+        uriBuilder.path("/s/{id}/{lockPath}").buildAndExpand(session, lockPathParam);
     HttpHeaders headers = new HttpHeaders();
     headers.setLocation(uriComponents.toUri());
     return new ResponseEntity<String>(headers, httpStatus);
   }
 
-  private List<String> toLockPath(String lockPath) {
-    if ( lockPath.isEmpty() ) { 
-      return Collections.emptyList();
-    }
-    return Collections.unmodifiableList(Arrays.asList(lockPath.split("/")));
-  }
-
   /**
    * Release the given lock if it is held by the given {@code session}.
-   * @param id the session id to release the lock for
+   * @param session the session id to release the lock for
    * @param request the request
    * @param uriBuilder a builder for the response location header URI
    * @return {@code true}, iff the lock was released
    */
   @RequestMapping(value = "/s/{id}/**", method = RequestMethod.DELETE)
   public ResponseEntity<String> release(
-      @PathVariable("id") String id, 
+      @PathVariable("id") String session, 
       HttpServletRequest request,
       UriComponentsBuilder uriBuilder) {
-    String matchedPath = 
-        (String)request.getAttribute(HandlerMapping.PATH_WITHIN_HANDLER_MAPPING_ATTRIBUTE);
-    final String lockPath = matchedPath.substring(4 + id.length());
-    final List<String> path = toLockPath(lockPath);
+    final String lockPathParam = getLockPathParam(request, 4 + session.length()); 
+    final List<String> path = getLockPath(lockPathParam);
     
-    final boolean deleted = lm.release(id, path);
+    final boolean deleted = lm.release(session, path);
     HttpStatus httpStatus = deleted ? HttpStatus.NO_CONTENT : HttpStatus.FORBIDDEN;
     
     UriComponents uriComponents = 
-        uriBuilder.path("/s/{id}/{lockPath}").buildAndExpand(id, lockPath);
+        uriBuilder.path("/s/{id}/{lockPath}").buildAndExpand(session, lockPathParam);
     HttpHeaders headers = new HttpHeaders();
     headers.setLocation(uriComponents.toUri());
     return new ResponseEntity<String>(headers, httpStatus);
+  }
+
+  private static LockScope getLockScope(String scope) {
+    return ( "s".equals(scope) ) ? LockScope.SHALLOW : LockScope.DEEP;
+  }
+
+  private static LockType getLockType(String type) {
+    return ( "r".equals(type) ) ? LockType.READ : LockType.WRITE;
+  }
+
+  private static String getLockPathParam(HttpServletRequest request, int prefixLength) {
+    String matchedPath = 
+        (String)request.getAttribute(HandlerMapping.PATH_WITHIN_HANDLER_MAPPING_ATTRIBUTE);
+    final String lockPath = matchedPath.substring(prefixLength);
+    return lockPath;
+  }
+
+  private static List<String> getLockPath(String lockPath) {
+    if ( lockPath.isEmpty() ) { 
+      return Collections.emptyList();
+    }
+    return Collections.unmodifiableList(Arrays.asList(lockPath.split("/")));
   }
 
   //  @RequestMapping(value = "/s/{id}/{path}", method = RequestMethod.GET)
