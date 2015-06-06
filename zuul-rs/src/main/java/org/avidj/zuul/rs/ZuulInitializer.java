@@ -22,61 +22,57 @@ package org.avidj.zuul.rs;
 
 import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.context.support.AbstractXmlApplicationContext;
-import org.springframework.context.support.ClassPathXmlApplicationContext;
-import org.springframework.context.support.FileSystemXmlApplicationContext;
 import org.springframework.web.WebApplicationInitializer;
 import org.springframework.web.context.ContextLoaderListener;
-import org.springframework.web.context.WebApplicationContext;
 import org.springframework.web.context.support.AnnotationConfigWebApplicationContext;
-import org.springframework.web.context.support.XmlWebApplicationContext;
 import org.springframework.web.servlet.DispatcherServlet;
 import org.springframework.web.servlet.config.annotation.EnableWebMvc;
 
 import javax.servlet.ServletContext;
 import javax.servlet.ServletRegistration;
 
-@EnableWebMvc
+/**
+ * This web application initializer creates the components and wires them together. Then it adds a
+ * servlet to handle requests and adds a generic URL mapping.
+ */
 public class ZuulInitializer implements WebApplicationInitializer {
 
   @Override
   public void onStartup(ServletContext container) {
-    XmlWebApplicationContext ctx = new XmlWebApplicationContext();
-    ctx.setConfigLocation("WEB-INF/zuul-context.xml");
-    
-//    AnnotationConfigWebApplicationContext ctx =
-//        new AnnotationConfigWebApplicationContext();    
-//    ctx.register(ContextConfiguration.class);
-//    ctx.refresh();
-    
+    // Create the 'root' Spring application context
+    AnnotationConfigWebApplicationContext rootContext =
+        new AnnotationConfigWebApplicationContext();
+    rootContext.register(RootContextConfiguration.class);
+
     // Manage the lifecycle of the root application context
-    container.addListener(new org.springframework.web.context.ContextLoaderListener(ctx));
-    
- // Create the dispatcher servlet's Spring application context
-//    AnnotationConfigWebApplicationContext dispatcherContext =
-//        new AnnotationConfigWebApplicationContext();
-//    dispatcherContext.register(DispatcherConfig.class);
-    
- // Register and map the dispatcher servlet
+    container.addListener(new ContextLoaderListener(rootContext));
+
+    // Create the dispatcher servlet's Spring application context
+    AnnotationConfigWebApplicationContext dispatcherContext =
+        new AnnotationConfigWebApplicationContext();
+    dispatcherContext.register(MvcContextConfiguration.class);
+
+    // Register and map the dispatcher servlet
     ServletRegistration.Dynamic dispatcher =
-        container.addServlet("dispatcher", new DispatcherServlet(ctx));
+        container.addServlet("dispatcher", new DispatcherServlet(dispatcherContext));
     dispatcher.setLoadOnStartup(1);
     dispatcher.addMapping("/");
-    
-//    //XmlWebApplicationContext appContext = new XmlWebApplicationContext();
-//    //appContext.setConfigLocation("/WEB-INF/spring/dispatcher-config.xml");
-////    WebApplicationContext context = getContext();
-//    //servletContext.addListener(new ContextLoaderListener(context));
-//    ServletRegistration.Dynamic dispatcher =
-//        container.addServlet("dispatcher", new DispatcherServlet(ctx));
-//    dispatcher.setLoadOnStartup(1);
-//    dispatcher.addMapping("/*");
-  }
-  
-  @Configuration
-  @ComponentScan ( basePackages = "org.avidj.zuul.rs" )
-  public static class ContextConfiguration {
-    
   }
 
+  /***
+   * The root application context, i.e., the components implementing the functionality.
+   */
+  @Configuration
+  @ComponentScan ( basePackages = "org.avidj.zuul.core" )
+  public static class RootContextConfiguration {
+  }
+
+  /**
+   * The web application context, i.e., making the functionality available as a RESTful service.
+   */
+  @Configuration
+  @EnableWebMvc
+  @ComponentScan ( basePackages = "org.avidj.zuul.rs" )
+  public static class MvcContextConfiguration {
+  }
 }
