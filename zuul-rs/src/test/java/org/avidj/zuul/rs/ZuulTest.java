@@ -20,31 +20,43 @@ package org.avidj.zuul.rs;
  * #L%
  */
 
-import static com.jayway.restassured.RestAssured.get;
-import static com.jayway.restassured.RestAssured.post;
-import static org.hamcrest.CoreMatchers.equalTo;
+import static com.jayway.restassured.module.mockmvc.RestAssuredMockMvc.*;
 
+import org.avidj.zuul.core.DefaultLockManager;
 import org.junit.Test;
+import org.springframework.http.HttpStatus;
 
 public class ZuulTest {
-  
+
   @Test
   public void testWDRoot() {
-    post("/").then().assertThat().body("lotto.lottoId", equalTo(5));
+    final Zuul zuul = createZuul();
+    given()
+        .standaloneSetup(zuul).param("t", "w").param("s", "d")
+        .when().put("/s/1/")
+        .then().statusCode(HttpStatus.CREATED.value());
+    given()
+        .standaloneSetup(zuul).param("t", "r")
+        .when().put("/s/2/foo/bar")
+        .then().statusCode(HttpStatus.FORBIDDEN.value());
   }
 
   @Test
-  public void testRDRoot() {
-    post("/").then().assertThat().body("lotto.lottoId", equalTo(5));
-  }
-  
-  @Test
-  public void testWSRoot() {
-    post("/").then().assertThat().body("lotto.lottoId", equalTo(5));
+  public void testWDNested() {
+    final Zuul zuul = createZuul();
+    given()
+        .standaloneSetup(zuul).param("t", "w").param("s", "d")
+        .when().put("/s/1/foo")
+        .then().statusCode(HttpStatus.CREATED.value());
+    given()
+        .standaloneSetup(zuul).param("t", "r")
+        .when().put("/s/2/foo/bar")
+        .then().statusCode(HttpStatus.FORBIDDEN.value());
   }
 
-  @Test
-  public void testRSRoot() {
-    post("/").then().assertThat().body("lotto.lottoId", equalTo(5));
+  private static Zuul createZuul() {
+    Zuul zuul = new Zuul();
+    zuul.setLockManager(new DefaultLockManager());
+    return zuul;
   }
 }

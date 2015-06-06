@@ -55,6 +55,10 @@ public class Zuul {
 
   @Autowired
   private LockManager lm;
+  
+  void setLockManager(LockManager lm) {
+    this.lm = lm;
+  }
 
   @RequestMapping(value = "/p/{id}", method = RequestMethod.GET)
   @ResponseBody
@@ -87,7 +91,7 @@ public class Zuul {
     String matchedPath = 
         (String)request.getAttribute(HandlerMapping.PATH_WITHIN_HANDLER_MAPPING_ATTRIBUTE);
     final String lockPath = matchedPath.substring(4 + id.length());
-    final List<String> path = Collections.unmodifiableList(Arrays.asList(lockPath.split("/")));
+    final List<String> path = toLockPath(lockPath);
     final LockType lockType = ( "r".equals(type) ) ? LockType.READ : LockType.WRITE;
     final LockScope lockScope = ( "s".equals(scope) ) ? LockScope.SHALLOW : LockScope.DEEP;
     
@@ -101,10 +105,18 @@ public class Zuul {
     return new ResponseEntity<String>(headers, httpStatus);
   }
 
+  private List<String> toLockPath(String lockPath) {
+    if ( lockPath.isEmpty() ) { 
+      return Collections.emptyList();
+    }
+    return Collections.unmodifiableList(Arrays.asList(lockPath.split("/")));
+  }
+
   /**
    * Release the given lock if it is held by the given {@code session}.
-   * @param session the session to release the lock for
-   * @param pathParam the lock path
+   * @param id the session id to release the lock for
+   * @param request the request
+   * @param uriBuilder a builder for the response location header URI
    * @return {@code true}, iff the lock was released
    */
   @RequestMapping(value = "/s/{id}/**", method = RequestMethod.DELETE)
@@ -115,7 +127,7 @@ public class Zuul {
     String matchedPath = 
         (String)request.getAttribute(HandlerMapping.PATH_WITHIN_HANDLER_MAPPING_ATTRIBUTE);
     final String lockPath = matchedPath.substring(4 + id.length());
-    final List<String> path = Collections.unmodifiableList(Arrays.asList(lockPath.split("/")));
+    final List<String> path = toLockPath(lockPath);
     
     final boolean deleted = lm.release(id, path);
     HttpStatus httpStatus = deleted ? HttpStatus.NO_CONTENT : HttpStatus.FORBIDDEN;
