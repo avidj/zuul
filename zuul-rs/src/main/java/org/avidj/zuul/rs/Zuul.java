@@ -37,10 +37,13 @@ import org.springframework.web.bind.annotation.ResponseBody;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.context.WebApplicationContext;
+import org.springframework.web.servlet.HandlerMapping;
 
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+
+import javax.servlet.http.HttpServletRequest;
 
 //import javax.ws.rs.DELETE;
 //import javax.ws.rs.GET;
@@ -71,8 +74,8 @@ public class Zuul {
 //  @RequestMapping(value = "/p/{id}", method = RequestMethod.GET)
   @RequestMapping(value = "/", method = RequestMethod.GET)
   @ResponseBody
-  public String ping() {//@PathVariable("id") String id) {
-//    lm.heartbeat(id);
+  public String ping(@PathVariable("id") String id) {
+    lm.heartbeat(id);
     return ACK;
   }
 
@@ -90,18 +93,21 @@ public class Zuul {
    *     ({@code d})eep, default is ({@code d})eep  
    * @return {@code true}, iff the operation was successful
    */
-//  @RequestMapping(value = "/s/{id}/{path:.*}", method = RequestMethod.PUT)
-//  public boolean lock(
-//      @PathVariable("id") String session, 
-//      @PathVariable("path") String pathParam,
-//      @RequestParam("t") String type,
-//      @RequestParam("s") String scope) {
-//    final List<String> path = Collections.unmodifiableList(Arrays.asList(pathParam.split("/")));
-//    final LockType lockType = ( "r".equals(type) ) ? LockType.READ : LockType.WRITE;
-//    final LockScope lockScope = ( "s".equals(scope) ) ? LockScope.SHALLOW : LockScope.DEEP;
-//    return lm.lock(session, path, lockType, lockScope);
-//  }
-//
+  @RequestMapping(value = "/s/{id}/**", method = RequestMethod.PUT)
+  public String lock(
+      @PathVariable("id") String session, 
+      @RequestParam(value = "t", defaultValue = "w") String type,
+      @RequestParam(value = "s", defaultValue = "s") String scope,
+      HttpServletRequest request) {
+    String matchedPath = 
+        (String)request.getAttribute(HandlerMapping.PATH_WITHIN_HANDLER_MAPPING_ATTRIBUTE);
+    final String lockPath = matchedPath.substring(4 + session.length());
+    final List<String> path = Collections.unmodifiableList(Arrays.asList(lockPath.split("/")));
+    final LockType lockType = ( "r".equals(type) ) ? LockType.READ : LockType.WRITE;
+    final LockScope lockScope = ( "s".equals(scope) ) ? LockScope.SHALLOW : LockScope.DEEP;
+    return Boolean.toString(lm.lock(session, path, lockType, lockScope));
+  }
+
 //  /**
 //   * Release the given lock if it is held by the given {@code session}.
 //   * @param session the session to release the lock for
@@ -109,11 +115,11 @@ public class Zuul {
 //   * @return {@code true}, iff the lock was released
 //   */
   @RequestMapping(value = "/s/{id}/{path}", method = RequestMethod.GET)
-  public boolean lock(
+  public String lock(
       @PathVariable("id") String session, 
       @PathVariable("path") String pathParam) {
     final List<String> path = Collections.unmodifiableList(Arrays.asList(pathParam.split("/")));
-    return lm.release(session, path);
+    return Boolean.toString(lm.release(session, path));
   }
 //
 //  /**
