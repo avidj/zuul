@@ -20,25 +20,28 @@ package org.avidj.zuul.core;
  * #L%
  */
 
-import static org.avidj.zuul.core.ConcurrentTestUtil.thread;
+import static org.avidj.zuul.core.ConcurrentTest.thread;
+import static org.avidj.zuul.core.ConcurrentTest.threads;
 import static org.avidj.zuul.core.LockManagerTest.key;
-import static org.avidj.zuul.core.Threads.threads;
 import static org.junit.Assert.assertThat;
 import static org.hamcrest.Matchers.is;
 
 import java.util.Arrays;
+import java.util.List;
 
 import org.avidj.zuul.core.DefaultLockManager;
 import org.avidj.zuul.core.LockManager;
 import org.avidj.zuul.core.LockScope;
 import org.avidj.zuul.core.LockType;
+import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Ignore;
 import org.junit.Test;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
-@Ignore
 public class ConcurrentLockManagerTest {
-  
+  private static final Logger LOG = LoggerFactory.getLogger(ConcurrentLockManagerTest.class);
   private LockManager lm;
 
   @Before
@@ -48,76 +51,126 @@ public class ConcurrentLockManagerTest {
   
   @Test
   public void testReadRead() {
-    Threads threads = threads(
-        thread().block(() -> {
+    ConcurrentTest threads = threads(
+        thread().exec(() -> {
           boolean success = lm.lock("1", Arrays.asList("a"), LockType.READ, LockScope.SHALLOW);
           assertThat(success, is(true));
         }),
-        thread().block(() -> {
+        thread().exec((t) -> {
+          t.waitFor(1);
           boolean success = lm.lock("2", Arrays.asList("a"), LockType.READ, LockScope.SHALLOW);
           assertThat(success, is(true));
-        })
-    ).run();
-    assertThat(threads.success(), is(true));
+        }))
+        .repeat(10000)
+        .run();
+    assertSuccess(threads);
+  }
+
+  private void assertSuccess(ConcurrentTest threads) {
+    if ( !threads.success() ) {
+      List<Throwable> throwables = threads.getThrowables();
+      for ( int i = 0, n = throwables.size(); i < n; i++ ) {
+        LOG.error("Error occurred in thread " + i + ": ", throwables.get(i));
+      }
+      Assert.fail();
+    }
   }
 
   @Test
   public void testReadWrite() {
-    Threads threads = threads(
-        thread().block(() -> {
+    ConcurrentTest threads = threads(
+        thread().exec(() -> {
           boolean success = lm.lock("1", Arrays.asList("a"), LockType.READ, LockScope.SHALLOW);
           assertThat(success, is(true));
         }),
-        thread().block(() -> {
+        thread().exec((t) -> {
+          t.waitFor(1);
           boolean success = lm.lock("2", Arrays.asList("a"), LockType.WRITE, LockScope.SHALLOW);
           assertThat(success, is(false));
-        })
-    ).run();
-    assertThat(threads.success(), is(true));
+        }))
+        .repeat(10000)
+        .run();
+    assertSuccess(threads);
   }
 
   @Test
   public void testWriteRead() {
-    Threads threads = threads(
-        thread().block(() -> {
+    ConcurrentTest threads = threads(
+        thread().exec(() -> {
           boolean success = lm.lock("1", Arrays.asList("a"), LockType.WRITE, LockScope.SHALLOW);
           assertThat(success, is(true));
         }),
-        thread().block(() -> {
+        thread().exec((t) -> {
+          t.waitFor(1);
           boolean success = lm.lock("2", Arrays.asList("a"), LockType.READ, LockScope.SHALLOW);
           assertThat(success, is(false));
-        })
-    ).run();
-    assertThat(threads.success(), is(true));
+        }))
+        .repeat(10000)
+        .run();
+    assertSuccess(threads);
   }
 
   @Test
   public void testShallowWriteNestedRead() {
-    Threads threads = threads(
-        thread().block(() -> {
+    ConcurrentTest threads = threads(
+        thread().exec(() -> {
           boolean success = lm.lock("1", key("a"), LockType.WRITE, LockScope.SHALLOW);
           assertThat(success, is(true));
         }),
-        thread().block(() -> {
+        thread().exec((t) -> {
+          t.waitFor(1);
           boolean success = lm.lock("2", key("a", "b"), LockType.READ, LockScope.SHALLOW);
           assertThat(success, is(true));
-        })
-    ).run();
-    assertThat(threads.success(), is(true));
+        }))
+        .repeat(10000)
+        .run();
+    assertSuccess(threads);
   }
 
   @Test
   public void testDeepWriteNestedRead() {
-    Threads threads = threads(
-        thread().block(() -> {
+    ConcurrentTest threads = threads(
+        thread().exec(() -> {
           boolean success = lm.lock("1", key("a"), LockType.WRITE, LockScope.DEEP);
           assertThat(success, is(true));
         }),
-        thread().block(() -> {
+        thread().exec((t) -> {
+          t.waitFor(1);
           boolean success = lm.lock("2", key("a", "b"), LockType.READ, LockScope.SHALLOW);
           assertThat(success, is(false));
-        })
-    ).run();
-    assertThat(threads.success(), is(true));
+        }))
+        .repeat(10000)
+        .run();
+    assertSuccess(threads);
   }
+
+  @Test
+  public void testForDeadlocks() {
+    ConcurrentTest threads = threads(
+        thread().exec(() -> {
+          boolean success = lm.readLock("1", key("a", "b", "c", "d", "e", "f"), LockScope.DEEP);
+          assertThat(success, is(true));
+        }),
+        thread().exec(() -> {
+          boolean success = lm.writeLock("2", key("a", "b", "c", "d", "e", "f"), LockScope.DEEP);
+          assertThat(success, is(true));
+        }))
+      .repeat(10000)
+      .killAfter(1000)
+      .run();
+    assertThat(threads.successCount(), is(1)); // either one of the threads must fail
+  }
+
+//  @Test
+//  public void testForDeadlocks() {
+//    ConcurrentTest threads = threads(
+//        thread().exec(() -> {
+//          boolean success = lm.readLock("1", key("a", "b", "c", "d", "e", "f"), LockScope.DEEP);
+//          assertThat(success, is(true));
+//        }).replicate(100))
+//      .repeat(100)
+//      .killAfter(1000)
+//      .run();
+//    assertThat(threads.successCount(), is(1)); // either one of the threads must fail
+//  }
 }
