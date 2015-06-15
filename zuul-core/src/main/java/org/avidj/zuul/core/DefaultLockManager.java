@@ -50,7 +50,7 @@ public class DefaultLockManager implements LockManager {
   static final LockTreeNodeVisitor DEC_READ_COUNTS = new LockTreeNodeVisitor() {
     @Override
     public LockTreeNode visit(LockTreeNode node) {
-      synchronized ( node.mutex ) {
+      synchronized ( node ) {
         node.reads--;
         if ( node.subtreeEmpty() && node.parent != null ) {
           node.parent.children.remove(node.key);
@@ -64,7 +64,7 @@ public class DefaultLockManager implements LockManager {
   static final LockTreeNodeVisitor DEC_WRITE_COUNTS = new LockTreeNodeVisitor() {
     @Override
     public LockTreeNode visit(LockTreeNode node) {
-      synchronized ( node.mutex ) {
+      synchronized ( node ) {
         node.writes--;
         if ( node.subtreeEmpty() && node.parent != null ) {
           node.parent.children.remove(node.key);
@@ -159,7 +159,7 @@ public class DefaultLockManager implements LockManager {
       if ( lock == null ) {
         return false;
       }
-      synchronized ( node.mutex ) {
+      synchronized ( node ) {
         lock.release();
       }
       if ( lock.count == 0 ) {
@@ -188,7 +188,9 @@ public class DefaultLockManager implements LockManager {
       assert ( invariants(root, path) );
       return false;
     }
-    current.writes++;
+    synchronized ( current ) {
+      current.writes++;
+    }
     
     final int n = path.size();
     int pos;
@@ -204,7 +206,9 @@ public class DefaultLockManager implements LockManager {
           assert ( invariants(root, path) );
           return false;
         }
-        current.writes++;
+        synchronized ( current ) {
+          current.writes++;
+        }
       } else {
         break;
       }
@@ -214,7 +218,9 @@ public class DefaultLockManager implements LockManager {
       prev.children.put(path.get(pos), current);
       current.mutex.lock();
       prev.mutex.unlock();
-      current.writes++;
+      synchronized ( current ) {
+        current.writes++;
+      }
       prev = current;
     }
     boolean success = setWriteLock(current, session, path, scope);
@@ -240,7 +246,9 @@ public class DefaultLockManager implements LockManager {
       assert ( invariants(root, path) );
       return false;
     }
-    current.reads++;
+    synchronized ( current ) {
+      current.reads++;
+    }
     
     final int n = path.size();
     int pos;
@@ -256,7 +264,9 @@ public class DefaultLockManager implements LockManager {
           assert ( invariants(root, path) );
           return false;
         }
-        current.reads++;
+        synchronized ( current ) {
+          current.reads++;
+        }
       } else {
         break;
       }
@@ -266,7 +276,9 @@ public class DefaultLockManager implements LockManager {
       prev.children.put(path.get(pos), current);
       current.mutex.lock();
       prev.mutex.unlock();
-      current.reads++;
+      synchronized ( current ) {
+        current.reads++;
+      }
       prev = current;
     }
     boolean success = setReadLock(current, session, path, scope);
@@ -280,8 +292,10 @@ public class DefaultLockManager implements LockManager {
 
   private boolean setReadLock(
       LockTreeNode node, Session session, List<String> path, LockScope scope) {
-    if ( scope == LockScope.DEEP && node.writes > 0 ) {
-      return false;
+    synchronized ( node ) {
+      if ( scope == LockScope.DEEP && node.writes > 0 ) {
+        return false;
+      }
     }
     final Lock exclusive = node.getExclusiveLock();
     if ( exclusive != null && !exclusive.session.equals(session.id) ) {
@@ -440,8 +454,10 @@ public class DefaultLockManager implements LockManager {
   }
 
   private static boolean lockCountsAreCorrect(LockTreeNode root) {    
-    return readCount(root) == root.reads
-        && writeCount(root) == root.writes;
+    synchronized ( root ) {
+      return readCount(root) == root.reads
+          && writeCount(root) == root.writes;
+    }
   }
 
   private static int readCount(LockTreeNode node) {
@@ -449,9 +465,11 @@ public class DefaultLockManager implements LockManager {
     for ( LockTreeNode child : node.children.values() ) {
       count += readCount(child);
     }
-    assert ( count == node.reads ) : 
-      String.format("node = %1$s, reads = %2$d, actual = %3$d", 
-          Strings.join(pathTo(node)), node.reads, count);
+    synchronized ( node ) {
+      assert ( count == node.reads ) : 
+        String.format("node = %1$s, reads = %2$d, actual = %3$d", 
+            Strings.join(pathTo(node)), node.reads, count);
+    }
     return count;
   }
 
@@ -461,9 +479,11 @@ public class DefaultLockManager implements LockManager {
     for ( LockTreeNode child : node.children.values() ) {
       count += writeCount(child);
     }
-    assert ( count == node.writes ) : 
-      String.format("node = %1$s, writes = %2$d, actual = %3$d", 
-          Strings.join(pathTo(node)), node.writes, count);
+    synchronized ( node ) {
+      assert ( count == node.writes ) : 
+        String.format("node = %1$s, writes = %2$d, actual = %3$d", 
+            Strings.join(pathTo(node)), node.writes, count);
+    }
     return count;
   }
 

@@ -39,8 +39,8 @@ public class LockTreeNode {
 
   final String key;
 
-  private final Map<String, Lock> sharedLocks = new HashMap<>();
-  private final Set<Lock> deepLocks = new HashSet<>();
+  private final Map<String, Lock> sharedLocks = Collections.synchronizedMap(new HashMap<>());
+  private final Set<Lock> deepLocks = Collections.synchronizedSet(new HashSet<>());
 
   private Lock exclusiveLock;
 

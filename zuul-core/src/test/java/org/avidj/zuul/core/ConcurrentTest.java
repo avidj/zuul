@@ -20,6 +20,9 @@ package org.avidj.zuul.core;
  * #L%
  */
 
+import static org.hamcrest.CoreMatchers.is;
+import static org.junit.Assert.assertThat;
+
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -29,6 +32,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.atomic.AtomicInteger;
 
+
 /**
  * Utility for executing concurrent test with the purpose to reveal concurrency bugs such as 
  * deadlocks or missing mutual exclusion. All threads passing does not guarantee that there are
@@ -37,6 +41,7 @@ import java.util.concurrent.atomic.AtomicInteger;
  * several thousands. 
  */
 public class ConcurrentTest {
+  private static final long SLEEP_INTERVAL = 5;
   private final ExecutorService pool = 
       Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors(), new ThreadFactory() {
         public Thread newThread(Runnable r) {
@@ -73,7 +78,7 @@ public class ConcurrentTest {
           }
         }
         try {
-          Thread.sleep(50);
+          Thread.sleep(SLEEP_INTERVAL );
         } catch (InterruptedException e) {
           // this cannot happen
         }
@@ -155,9 +160,16 @@ public class ConcurrentTest {
     done = true;
     // Repetitions increase the probability to find erroneous interleavings of operations.
     for ( int i = 0; i < repeat; i++ ) {
+      reset();
       runOnce();
+//      assertThat(successCount(), is(successCount));
     }
     return this;
+  }
+
+  private void reset() {
+    // TODO Auto-generated method stub
+    
   }
 
   private void runOnce() {
@@ -282,5 +294,5 @@ public class ConcurrentTest {
     public void execute(TestThread t) {
       actions.execute();
     }
-  }  
+  }
 }
