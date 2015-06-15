@@ -168,7 +168,7 @@ public class DefaultLockManager implements LockManager {
         lock.type.decCounts(root, path);
       }
     } finally {
-      node.mutex.unlock();
+      node.unlock();
     }
     assert ( invariants(root, path) );
     return true;
@@ -182,9 +182,9 @@ public class DefaultLockManager implements LockManager {
     LockTreeNode prev = null;
     LockTreeNode current = root;
 
-    current.mutex.lock();
+    current.lock();
     if ( deepLockByOtherSession(current, id, LockType.READ) ) {
-      current.mutex.unlock();
+      current.unlock();
       assert ( invariants(root, path) );
       return false;
     }
@@ -198,10 +198,10 @@ public class DefaultLockManager implements LockManager {
       prev = current;
       current = current.children.get(path.get(pos));
       if ( current != null ) {
-        current.mutex.lock();
-        prev.mutex.unlock();
+        current.lock();
+        prev.unlock();
         if ( deepLockByOtherSession(current, id, LockType.READ) ) {
-          current.mutex.unlock();
+          current.unlock();
           LockType.WRITE.decCounts(root, path.subList(0, pos));
           assert ( invariants(root, path) );
           return false;
@@ -215,16 +215,16 @@ public class DefaultLockManager implements LockManager {
     }
     for ( ; pos < n; pos++ ) {
       current = treeNode(path.get(pos), prev);
+      current.lock();
+      prev.unlock();
       prev.children.put(path.get(pos), current);
-      current.mutex.lock();
-      prev.mutex.unlock();
       synchronized ( current ) {
         current.writes++;
       }
       prev = current;
     }
     boolean success = setWriteLock(current, session, path, scope);
-    current.mutex.unlock();
+    current.unlock();
     if ( !success ) {
       LockType.WRITE.decCounts(root, path);
     }
@@ -240,9 +240,9 @@ public class DefaultLockManager implements LockManager {
     LockTreeNode prev = null;
     LockTreeNode current = root;
 
-    current.mutex.lock();
+    current.lock();
     if ( deepLockByOtherSession(current, id, LockType.WRITE) ) {
-      current.mutex.unlock();
+      current.unlock();
       assert ( invariants(root, path) );
       return false;
     }
@@ -256,10 +256,10 @@ public class DefaultLockManager implements LockManager {
       prev = current;
       current = current.children.get(path.get(pos));
       if ( current != null ) {
-        current.mutex.lock();
-        prev.mutex.unlock();
+        current.lock();
+        prev.unlock();
         if ( deepLockByOtherSession(current, id, LockType.WRITE) ) {
-          current.mutex.unlock();
+          current.unlock();
           LockType.READ.decCounts(root, path.subList(0, pos));
           assert ( invariants(root, path) );
           return false;
@@ -273,19 +273,21 @@ public class DefaultLockManager implements LockManager {
     }
     for ( ; pos < n; pos++ ) {
       current = treeNode(path.get(pos), prev);
+      current.lock(); // must lock before adding to children list
+      prev.unlock();
       prev.children.put(path.get(pos), current);
-      current.mutex.lock();
-      prev.mutex.unlock();
       synchronized ( current ) {
         current.reads++;
       }
       prev = current;
     }
+    LOG.info("try read lock");
     boolean success = setReadLock(current, session, path, scope);
-    current.mutex.unlock();
+    current.unlock();
     if ( !success ) {
       LockType.READ.decCounts(root, path);
     }
+    LOG.info("check invariants");
     assert ( invariants(root, path) );
     return success;
   }
@@ -305,7 +307,9 @@ public class DefaultLockManager implements LockManager {
     final Lock existing = ( exclusive != null ) ? exclusive : node.getLock(session.id);
     if ( existing != null ) {
       node.removeLock(existing);
+      node.unlock();
       existing.type.decCounts(root, path);
+      node.lock();
     }
     
     final Lock newLock = ( existing != null ) 
@@ -337,8 +341,10 @@ public class DefaultLockManager implements LockManager {
     }
     
     // on lock type upgrade, update counts
-    Lock newLock = existing.writeLock(scope);
+    node.unlock();
     existing.type.decCounts(root, path);
+    node.lock();
+    Lock newLock = existing.writeLock(scope);
     node.removeLock(existing);
     node.addLock(newLock);
     session.addLock(node);
@@ -349,23 +355,23 @@ public class DefaultLockManager implements LockManager {
   private LockTreeNode findExistingNode(String session, List<String> path) {
     // special case of root lock
     if ( path.isEmpty() ) {
-      root.mutex.lock();
+      root.lock();
       return root;
     }
     
     // traverse path described by lock
     LockTreeNode current = root;
     LockTreeNode prev = null;
-    current.mutex.lock();
+    current.lock();
     for ( int pos = 0, n = path.size(); pos < n; pos++ ) {
       prev = current;
       current = current.children.get(path.get(pos));
       if ( current == null ) {
-        prev.mutex.unlock();
+        prev.unlock();
         return null;
       }
-      current.mutex.lock();
-      prev.mutex.unlock();
+      current.lock();
+      prev.unlock();
     }
     return current;
   }
@@ -374,26 +380,26 @@ public class DefaultLockManager implements LockManager {
     LockTreeNode prev = null;
     LockTreeNode current = root;
     
-    current.mutex.lock();
+    current.lock();
     visitor.visit(current);
     
     for ( int i = 0, n = path.size(); i < n && current != null ; i++ ) {
       prev = current;
       current = current.children.get(path.get(i));
       if ( current != null ) {
-        current.mutex.lock();
+        current.lock();
         current = visitor.visit(current);
       }
-      prev.mutex.unlock();
+      prev.unlock();
     }
     if ( current != null ) {
-      current.mutex.unlock();
+      current.unlock();
     }
   }
 
   private static boolean currentThreadHoldsNoLocksOnPath(LockTreeNode root, List<String> path) {
     LockTreeNode current = root;
-    if ( current.mutex.isHeldByCurrentThread() ) {
+    if ( current.isHeldByCurrentThread() ) {
       return false;
     }
     for ( int i = 0, n = path.size(); i < n; i++ ) {
@@ -401,7 +407,7 @@ public class DefaultLockManager implements LockManager {
       current = current.children.get(step);
       if ( current == null ) {
         return true;
-      } else if ( current.mutex.isHeldByCurrentThread() ) {
+      } else if ( current.isHeldByCurrentThread() ) {
         LOG.error("Current thread holds a lock on mutex of node: {}", 
             Strings.join(path.subList(0, i + 1)));
         return false;

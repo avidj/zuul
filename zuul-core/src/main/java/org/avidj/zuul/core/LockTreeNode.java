@@ -36,7 +36,7 @@ import java.util.concurrent.locks.ReentrantLock;
 public class LockTreeNode {
   private static final Logger LOG = LoggerFactory.getLogger(LockTreeNode.class);
   // Mutex for lock coupling.
-  final ReentrantLock mutex = new ReentrantLock();
+  private final ReentrantLock mutex = new ReentrantLock();
   
   final LockTreeNode parent;
 
@@ -157,5 +157,20 @@ public class LockTreeNode {
   
   boolean subtreeEmpty() {
     return ( locksInSubtree() == 0 );
+  }
+
+  void lock() {
+    LOG.info("try lock {}", key != null ? key : "root");
+    mutex.lock();
+    LOG.info("locked {}", key != null ? key : "root");
+  }
+
+  void unlock() {
+    mutex.unlock();
+    LOG.info("unlocked {}", key != null ? key : "root");
+  }
+
+  boolean isHeldByCurrentThread() {
+    return mutex.isHeldByCurrentThread();
   }
 }
