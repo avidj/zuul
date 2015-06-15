@@ -281,13 +281,13 @@ public class DefaultLockManager implements LockManager {
       }
       prev = current;
     }
-    LOG.info("try read lock");
+    LOG.trace("try read lock");
     boolean success = setReadLock(current, session, path, scope);
     current.unlock();
     if ( !success ) {
       LockType.READ.decCounts(root, path);
     }
-    LOG.info("check invariants");
+    LOG.trace("check invariants");
     assert ( invariants(root, path) );
     return success;
   }
@@ -434,9 +434,11 @@ public class DefaultLockManager implements LockManager {
   }
 
   private static boolean invariants(LockTreeNode root, List<String> path) {
-    return currentThreadHoldsNoLocksOnPath(root, path)
-        && lockCountsAreCorrect(root)
-        && noLoiteringLockNodes(root, path);
+    synchronized ( root ) {
+      return currentThreadHoldsNoLocksOnPath(root, path)
+          && lockCountsAreCorrect(root)
+          && noLoiteringLockNodes(root, path);
+    }
   }
 
   private static boolean deepLockByOtherSession(

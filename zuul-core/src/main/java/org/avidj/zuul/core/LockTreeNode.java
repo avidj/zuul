@@ -160,14 +160,14 @@ public class LockTreeNode {
   }
 
   void lock() {
-    LOG.info("try lock {}", key != null ? key : "root");
+    LOG.trace("try lock {}", key != null ? key : "root");
     mutex.lock();
-    LOG.info("locked {}", key != null ? key : "root");
+    LOG.trace("locked {}", key != null ? key : "root");
   }
 
   void unlock() {
     mutex.unlock();
-    LOG.info("unlocked {}", key != null ? key : "root");
+    LOG.trace("unlocked {}", key != null ? key : "root");
   }
 
   boolean isHeldByCurrentThread() {
