@@ -20,17 +20,17 @@ package org.avidj.zuul.core;
  * #L%
  */
 
-import static org.hamcrest.CoreMatchers.is;
-import static org.junit.Assert.assertThat;
-
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
-import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ThreadFactory;
-import java.util.concurrent.atomic.AtomicInteger;
+
+import org.avidj.zuul.core.TestRun.TestThread;
+import org.junit.Assert;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 
 /**
@@ -41,8 +41,8 @@ import java.util.concurrent.atomic.AtomicInteger;
  * several thousands. 
  */
 public class ConcurrentTest {
-  private static final long SLEEP_INTERVAL = 5;
-  private final ExecutorService pool = 
+  private static final Logger LOG = LoggerFactory.getLogger(ConcurrentTest.class);
+  final ExecutorService pool = 
       Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors(), new ThreadFactory() {
         public Thread newThread(Runnable r) {
           Thread t = new Thread(r);
@@ -50,58 +50,19 @@ public class ConcurrentTest {
           return t;
         }
       });
-  private final List<TestThread> testThreads;
-  private final List<Thread> threads;
-  private final List<Throwable> throwables;
-  private final CountDownLatch startFlag = new CountDownLatch(1);
-  private final CountDownLatch finished;
-  private final AtomicInteger successCount = new AtomicInteger();
-  private final Object lock = new Object();
-  private int tick = 0;
+  final List<TestThread> testThreads;  
+  final List<Thread> threads;  
   private int repeat = 1;
   private int killAfter;
   private int nextIndex = 0;
   private boolean done = false;
-  
-  // Increments the tick counter when all threads are blocked, waiting, or terminated, so as to 
-  // allow waiting threads to continue
-  private final Runnable threadObserver = new Runnable() {
-    @Override
-    public void run() {
-      while ( finished.getCount() > 0 ) {
-        if ( noThreadsRunning() ) {
-          synchronized ( lock ) {
-            if ( noThreadsRunning() ) {
-              tick++;
-              lock.notifyAll();
-            }
-          }
-        }
-        try {
-          Thread.sleep(SLEEP_INTERVAL );
-        } catch (InterruptedException e) {
-          // this cannot happen
-        }
-      }
-    }
-    private boolean noThreadsRunning() {
-      for ( Thread t : threads ) {
-        if ( t.getState() == Thread.State.RUNNABLE ) {
-          return false;
-        }
-      }
-      return true;
-    }
-  };
+  final int sessionCount;
+  private TestRun lastRun;
 
   private ConcurrentTest(int sessionCount) {
+    this.sessionCount = sessionCount;
     testThreads = new ArrayList<>(sessionCount);
     threads = new ArrayList<>(sessionCount);
-    finished = new CountDownLatch(sessionCount);
-    throwables = new ArrayList<>(sessionCount);
-    for ( int i = 0; i < sessionCount; i++ ) {
-      throwables.add(null);
-    }
   }
 
   /**
@@ -114,17 +75,16 @@ public class ConcurrentTest {
    * @return this
    */
   public static ConcurrentTest threads(TestThread t0, TestThread... more) {
-    ConcurrentTest testUtil = new ConcurrentTest(more.length + 1);
-    testUtil.add(t0);
+    ConcurrentTest test = new ConcurrentTest(more.length + 1);
+    test.add(t0);
     for ( TestThread t : more ) {
-      testUtil.add(t);
+      test.add(t);
     }
-    return testUtil;
+    return test;
   }
 
   private void add(TestThread testThread) {
     testThread.setIndex(nextIndex++);
-    testThread.setConcurrentTest(this);
     testThreads.add(testThread);
   }
 
@@ -149,19 +109,42 @@ public class ConcurrentTest {
     return this;
   }
 
+  public ConcurrentTest assertSuccess() {
+    return assertSuccessCount(sessionCount);
+  }
+
+  public ConcurrentTest assertSuccessCount(int count) {
+    // Repetitions increase the probability to find erroneous interleavings of operations.
+    for ( int i = 0; i < repeat; i++ ) {
+      LOG.info("run {}", i);
+      reset();
+      lastRun = new TestRun(this);
+      lastRun.runOnce();
+      assertSuccessCount(lastRun, count);
+    }
+    return this;
+  }
+
+  private void assertSuccessCount(TestRun run, int count) {
+    if ( run.successCount() != count ) {
+      List<Throwable> throwables = run.getThrowables();
+      for ( int i = 0, n = throwables.size(); i < n; i++ ) {
+        LOG.error("Error occurred in thread " + i + ": ", throwables.get(i));
+      }
+      Assert.fail();
+    }
+  }
+
   /**
    * Execute the test.
    * @return this
    */
   public ConcurrentTest run() {
-    if ( done ) {
-      throw new IllegalStateException("This test was already executed.");
-    }
-    done = true;
     // Repetitions increase the probability to find erroneous interleavings of operations.
     for ( int i = 0; i < repeat; i++ ) {
       reset();
-      runOnce();
+      TestRun run = new TestRun(this);
+      run.runOnce();
 //      assertThat(successCount(), is(successCount));
     }
     return this;
@@ -172,31 +155,6 @@ public class ConcurrentTest {
     
   }
 
-  private void runOnce() {
-    // start the threads, actually they will wait for the startflag
-    for ( TestThread thread : testThreads ) {
-      pool.execute(thread);
-    }
-    // give all test threads the start signal
-    startFlag.countDown();
-    new Thread(threadObserver).start();
-    // TODO: defeat deadlocks
-    try {
-      finished.await();
-    } catch (InterruptedException e) {
-      Thread.currentThread().interrupt();
-    }
-  }
-
-  /**
-   * Returns whether all test threads were successful.
-   * 
-   * @return true, iff all test threads succeeded
-   */
-  public boolean success() {
-    return successCount.get() == testThreads.size();
-  }
-
   /**
    * The number of successful test threads. That is, the number of threads that did not fail with
    * an exception or (assertion) error.
@@ -204,71 +162,17 @@ public class ConcurrentTest {
    * @return the number of successful test threads
    */
   public int successCount() {
-    return successCount.get();
+    return lastRun.successCount();
   }
 
   public List<Throwable> getThrowables() {
-    return Collections.unmodifiableList(throwables);
+    return Collections.unmodifiableList(lastRun.getThrowables());
   }
 
   public static TestThread thread() {
     return new TestThread();
   }
-  
-  public static class TestThread implements Runnable {
-    private final List<Actions> blocks = new ArrayList<>();
-    private int index;
-    private ConcurrentTest test;
-
-    private TestThread() {
-    }
     
-    private void setIndex(int index) {
-      this.index = index;
-    }
-    
-    private void setConcurrentTest(ConcurrentTest test) {
-      this.test = test;
-    }
-    
-    public TestThread exec(Actions block) {
-      this.blocks.add(block);
-      return this;
-    }
-
-    public TestThread exec(NoArgActions block) {
-      this.blocks.add(new NoArgActionsWrapper(block));
-      return this;
-    }
-
-    public void run() {
-      try {
-        test.startFlag.await();
-        for ( Actions block : blocks ) {
-          block.execute(this);
-        }
-        test.successCount.getAndIncrement();
-      } catch ( Throwable t ) {
-        test.throwables.set(index, t);
-      } finally {
-        // signal that this thread is done
-        test.finished.countDown(); 
-      }
-    }
-
-    public void waitFor(int tick) {
-      try {
-        synchronized ( test.lock ) {
-          while ( test.tick < tick ) {
-            test.lock.wait();
-          }
-        }
-      } catch (InterruptedException e) {
-        Thread.currentThread().interrupt();
-      }
-    }
-  }
-  
   @FunctionalInterface
   public interface Actions {
     /**
@@ -283,10 +187,10 @@ public class ConcurrentTest {
   }
   
   // A wrapper to adapt the Actions interface to the NoArgActions interface
-  private static class NoArgActionsWrapper implements Actions {
+  static class NoArgActionsWrapper implements Actions {
     private final NoArgActions actions;
     
-    private NoArgActionsWrapper(NoArgActions actions) {
+    NoArgActionsWrapper(NoArgActions actions) {
       this.actions = actions;
     }
     

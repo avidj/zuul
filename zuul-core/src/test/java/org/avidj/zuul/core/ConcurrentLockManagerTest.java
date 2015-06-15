@@ -50,7 +50,7 @@ public class ConcurrentLockManagerTest {
   
   @Test
   public void testReadRead() {
-    ConcurrentTest threads = threads(
+    threads(
         thread().exec(() -> {
           boolean success = lm.lock("1", Arrays.asList("a"), LockType.READ, LockScope.SHALLOW);
           assertThat(success, is(true));
@@ -61,23 +61,12 @@ public class ConcurrentLockManagerTest {
           assertThat(success, is(true));
         }))
         .repeat(10000)
-        .run();
-    assertSuccess(threads);
-  }
-
-  private void assertSuccess(ConcurrentTest threads) {
-    if ( !threads.success() ) {
-      List<Throwable> throwables = threads.getThrowables();
-      for ( int i = 0, n = throwables.size(); i < n; i++ ) {
-        LOG.error("Error occurred in thread " + i + ": ", throwables.get(i));
-      }
-      Assert.fail();
-    }
+        .assertSuccess();
   }
 
   @Test
   public void testReadWrite() {
-    ConcurrentTest threads = threads(
+    threads(
         thread().exec(() -> {
           boolean success = lm.lock("1", Arrays.asList("a"), LockType.READ, LockScope.SHALLOW);
           assertThat(success, is(true));
@@ -88,13 +77,12 @@ public class ConcurrentLockManagerTest {
           assertThat(success, is(false));
         }))
         .repeat(10000)
-        .run();
-    assertSuccess(threads);
+        .assertSuccess();
   }
 
   @Test
   public void testWriteRead() {
-    ConcurrentTest threads = threads(
+    threads(
         thread().exec(() -> {
           boolean success = lm.lock("1", Arrays.asList("a"), LockType.WRITE, LockScope.SHALLOW);
           assertThat(success, is(true));
@@ -105,13 +93,12 @@ public class ConcurrentLockManagerTest {
           assertThat(success, is(false));
         }))
         .repeat(10000)
-        .run();
-    assertSuccess(threads);
+        .assertSuccess();
   }
 
   @Test
   public void testShallowWriteNestedRead() {
-    ConcurrentTest threads = threads(
+    threads(
         thread().exec(() -> {
           boolean success = lm.lock("1", key("a"), LockType.WRITE, LockScope.SHALLOW);
           assertThat(success, is(true));
@@ -122,13 +109,12 @@ public class ConcurrentLockManagerTest {
           assertThat(success, is(true));
         }))
         .repeat(10000)
-        .run();
-    assertSuccess(threads);
+        .assertSuccess();
   }
 
   @Test
   public void testDeepWriteNestedRead() {
-    ConcurrentTest threads = threads(
+    threads(
         thread().exec(() -> {
           boolean success = lm.lock("1", key("a"), LockType.WRITE, LockScope.DEEP);
           assertThat(success, is(true));
@@ -139,13 +125,12 @@ public class ConcurrentLockManagerTest {
           assertThat(success, is(false));
         }))
         .repeat(10000)
-        .run();
-    assertSuccess(threads);
+        .assertSuccess();
   }
 
   @Test
   public void testForDeadlocks() {
-    ConcurrentTest threads = threads(
+    threads(
         thread().exec(() -> {
           boolean success = lm.readLock("1", key("a", "b", "c", "d", "e", "f"), LockScope.DEEP);
           assertThat(success, is(true));
@@ -156,10 +141,9 @@ public class ConcurrentLockManagerTest {
         }))
       .repeat(10000)
       .killAfter(1000)
-      .run();
-    assertThat(threads.successCount(), is(1)); // either one of the threads must fail
+      .assertSuccessCount(1); // either one of the threads must fail
   }
-
+  
 //  @Test
 //  public void testForDeadlocks() {
 //    ConcurrentTest threads = threads(
