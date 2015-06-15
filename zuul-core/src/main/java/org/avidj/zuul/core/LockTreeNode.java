@@ -23,6 +23,8 @@ package org.avidj.zuul.core;
 import com.google.common.base.Preconditions;
 
 import org.avidj.util.Strings;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.Collections;
 import java.util.HashMap;
@@ -32,6 +34,7 @@ import java.util.Set;
 import java.util.concurrent.locks.ReentrantLock;
 
 public class LockTreeNode {
+  private static final Logger LOG = LoggerFactory.getLogger(LockTreeNode.class);
   // Mutex for lock coupling.
   final ReentrantLock mutex = new ReentrantLock();
   

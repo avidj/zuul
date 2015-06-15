@@ -27,13 +27,11 @@ import static org.junit.Assert.assertThat;
 import static org.hamcrest.Matchers.is;
 
 import java.util.Arrays;
-import java.util.List;
 
 import org.avidj.zuul.core.DefaultLockManager;
 import org.avidj.zuul.core.LockManager;
 import org.avidj.zuul.core.LockScope;
 import org.avidj.zuul.core.LockType;
-import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 import org.slf4j.Logger;
