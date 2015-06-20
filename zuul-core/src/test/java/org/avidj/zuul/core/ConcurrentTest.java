@@ -116,7 +116,7 @@ public class ConcurrentTest {
   public ConcurrentTest assertSuccessCount(int count) {
     // Repetitions increase the probability to find erroneous interleavings of operations.
     for ( int i = 0; i < repeat; i++ ) {
-      LOG.info("run {}", i);
+      LOG.trace("run {}", i + 1);
       reset();
       lastRun = new TestRun(this);
       lastRun.runOnce();
@@ -178,12 +178,12 @@ public class ConcurrentTest {
     /**
      * @param t the test thread, can be used for waiting for ticks within blocks
      */
-    abstract void execute(TestThread t);
+    abstract void execute(TestThread t) throws Exception;
   }
 
   @FunctionalInterface
   public interface NoArgActions {
-    abstract void execute();
+    abstract void execute() throws Exception;
   }
   
   // A wrapper to adapt the Actions interface to the NoArgActions interface
@@ -195,7 +195,7 @@ public class ConcurrentTest {
     }
     
     @Override
-    public void execute(TestThread t) {
+    public void execute(TestThread t) throws Exception {
       actions.execute();
     }
   }

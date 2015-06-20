@@ -74,7 +74,7 @@ public class ConcurrentLockManagerTest {
           boolean success = lm.lock("2", Arrays.asList("a"), LockType.WRITE, LockScope.SHALLOW);
           assertThat(success, is(false));
         }))
-        .repeat(10000)
+        .repeat(100)
         .assertSuccess();
   }
 
