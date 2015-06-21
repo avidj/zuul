@@ -1,96 +1,35 @@
 package org.avidj.zuul.core;
 
-import java.lang.management.ManagementFactory;
-import java.lang.management.ThreadInfo;
-import java.lang.management.ThreadMXBean;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.LinkedList;
-import java.util.List;
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.atomic.AtomicInteger;
-
-import org.avidj.util.Strings;
 import org.avidj.zuul.core.ConcurrentTest.Actions;
 import org.avidj.zuul.core.ConcurrentTest.NoArgActions;
 import org.avidj.zuul.core.ConcurrentTest.NoArgActionsWrapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.lang.management.ThreadInfo;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.atomic.AtomicInteger;
+
 class TestRun {
-  private static final Logger LOG = LoggerFactory.getLogger(TestRun.class);
-  private static final long SLEEP_INTERVAL = 5;
+  static final long SLEEP_INTERVAL = 5;
+  
   private final List<Throwable> throwables;
   private final CountDownLatch startFlag = new CountDownLatch(1);
-  private final CountDownLatch finished;
   private final AtomicInteger successCount = new AtomicInteger();
-  private final Object lock = new Object();
-  private final ConcurrentTest concurrentTest;
+  private final AtomicInteger finishedCount = new AtomicInteger();
+
+  final Object lock = new Object();
+  final ConcurrentTest concurrentTest;
 
   // TODO: only use existing ticks and stop if none are left (starvation, missed signals, etc)
-  private int tick = 0;
+  int tick = 0;
 
   // Increments the tick counter when all threads are blocked, waiting, or terminated, so as to 
-  // allow waiting threads to continue
-  private final Runnable threadObserver = new Runnable() {
-    final ThreadMXBean threadMxBean = ManagementFactory.getThreadMXBean();
-
-    @Override
-    public void run() {
-      while ( finished.getCount() > 0 ) {
-        if ( noThreadsRunning() ) {
-          synchronized ( lock ) {
-            if ( noThreadsRunning() ) {
-              if ( javaLevelDeadlockDetected() ) {
-                throw new RuntimeException();
-              }
-              tick++;
-              lock.notifyAll();
-            }
-          }
-        }
-        try {
-          Thread.sleep(SLEEP_INTERVAL );
-        } catch (InterruptedException e) {
-          // this cannot happen
-        }
-      }
-    }
-    
-    private boolean noThreadsRunning() {
-      for ( Thread t : concurrentTest.threads ) {
-        if ( t.getState() == Thread.State.RUNNABLE ) {
-          return false;
-        }
-      }
-      return true;
-    }
-    
-    private boolean javaLevelDeadlockDetected() {
-      for ( Thread t : concurrentTest.threads ) {
-        if ( t.getState() == Thread.State.BLOCKED ) {
-          List<Long> loop = new LinkedList<Long>();
-          ThreadInfo currentInfo = threadMxBean.getThreadInfo(t.getId());
-          loop.add(t.getId());
-          Long blockerId;
-          do {
-            blockerId = currentInfo.getLockOwnerId();
-            loop.add(blockerId);
-            currentInfo = threadMxBean.getThreadInfo(blockerId);
-          } while ( currentInfo.getThreadState() == Thread.State.BLOCKED && !loop.get(0).equals(blockerId) );
-          
-          if ( currentInfo.getThreadState() == Thread.State.BLOCKED ) {
-            LOG.info(Strings.join(loop));
-            return true;
-          }
-          // TODO: Thread.holdsLock(obj);
-          // blockerInfo.getLockedMonitors();
-        }
-      }
-      
-      return false;
-    }
-  };
+  // allow waiting threads to continue. Also discovers deadlocks.
+  private final TestThreadObserver threadObserver = new TestThreadObserver(this);
   
   public List<Throwable> getThrowables() {
     return Collections.unmodifiableList(throwables);
@@ -98,7 +37,6 @@ class TestRun {
 
   TestRun(ConcurrentTest concurrentTest) {
     this.concurrentTest = concurrentTest;
-    finished = new CountDownLatch(concurrentTest.sessionCount);
     throwables = new ArrayList<>(concurrentTest.sessionCount);
     for ( int i = 0; i < concurrentTest.sessionCount; i++ ) {
       throwables.add(null);
@@ -114,11 +52,19 @@ class TestRun {
     // give all test threads the start signal
     startFlag.countDown();
     new Thread(threadObserver).start();
-    // TODO: defeat deadlocks
     try {
-      finished.await();
+      awaitFinished();
     } catch (InterruptedException e) {
       Thread.currentThread().interrupt();
+    }
+  }
+
+  private void awaitFinished() throws InterruptedException {
+    synchronized ( lock ) {
+      while ( finishedCount.get() < concurrentTest.sessionCount 
+          && threadObserver.getDeadlock() == null ) {
+        lock.wait();
+      }
     }
   }
 
@@ -131,6 +77,10 @@ class TestRun {
     return successCount.get() == concurrentTest.testThreads.size();
   }
   
+  boolean finished() {
+    return finishedCount.get() == concurrentTest.testThreads.size();
+  }
+  
   /**
    * The number of successful test threads. That is, the number of threads that did not fail with
    * an exception or (assertion) error.
@@ -139,6 +89,10 @@ class TestRun {
    */
   int successCount() {
     return successCount.get();
+  }
+
+  public List<ThreadInfo> getDeadlock() {    
+    return threadObserver.getDeadlock();
   }
 
   static class TestThread implements Runnable {
@@ -178,8 +132,8 @@ class TestRun {
       } catch ( Throwable t ) {
         test.throwables.set(index, t);
       } finally {
-        // signal that this thread is done
-        test.finished.countDown(); 
+        test.finishedCount.getAndIncrement();
+        test.lock.notify();
       }
     }
 

@@ -20,6 +20,7 @@ package org.avidj.zuul.core;
  * #L%
  */
 
+import java.lang.management.ThreadInfo;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -27,6 +28,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ThreadFactory;
 
+import org.avidj.util.Strings;
 import org.avidj.zuul.core.TestRun.TestThread;
 import org.junit.Assert;
 import org.slf4j.Logger;
@@ -55,7 +57,6 @@ public class ConcurrentTest {
   private int repeat = 1;
   private int killAfter;
   private int nextIndex = 0;
-  private boolean done = false;
   final int sessionCount;
   private TestRun lastRun;
 
@@ -117,9 +118,13 @@ public class ConcurrentTest {
     // Repetitions increase the probability to find erroneous interleavings of operations.
     for ( int i = 0; i < repeat; i++ ) {
       LOG.trace("run {}", i + 1);
-      reset();
       lastRun = new TestRun(this);
       lastRun.runOnce();
+      if ( lastRun.getDeadlock() != null ) {
+        List<ThreadInfo> deadlock = lastRun.getDeadlock();
+        LOG.warn("\nDeadlock detected:\n" + Strings.join("", deadlock));
+        Assert.fail();
+      }
       assertSuccessCount(lastRun, count);
     }
     return this;
@@ -142,17 +147,10 @@ public class ConcurrentTest {
   public ConcurrentTest run() {
     // Repetitions increase the probability to find erroneous interleavings of operations.
     for ( int i = 0; i < repeat; i++ ) {
-      reset();
       TestRun run = new TestRun(this);
       run.runOnce();
-//      assertThat(successCount(), is(successCount));
     }
     return this;
-  }
-
-  private void reset() {
-    // TODO Auto-generated method stub
-    
   }
 
   /**

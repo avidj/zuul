@@ -35,6 +35,10 @@ public final class Strings {
    * @return a string containing all the elements separated by commas  
    */
   public static String join(Iterable<?> iterable) {
+    return join(", ", iterable);
+  }
+
+  public static String join(String separator, Iterable<?> iterable) {
     Iterator<?> iter = iterable.iterator();
     if ( !iter.hasNext() ) {
       return "";
@@ -42,7 +46,7 @@ public final class Strings {
     StringBuilder string = new StringBuilder();
     string.append(iter.next());
     while ( iter.hasNext() ) {
-      string.append(", ").append(iter.next());
+      string.append(separator).append(iter.next());
     }
     return string.toString();
   }
