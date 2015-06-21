@@ -20,8 +20,8 @@ package org.avidj.zuul.core;
  * #L%
  */
 
-import static org.avidj.zuul.core.ConcurrentTest.thread;
-import static org.avidj.zuul.core.ConcurrentTest.threads;
+import static org.avidj.threst.ConcurrentTest.thread;
+import static org.avidj.threst.ConcurrentTest.threads;
 import static org.avidj.zuul.core.LockManagerTest.key;
 import static org.junit.Assert.assertThat;
 import static org.hamcrest.Matchers.is;
