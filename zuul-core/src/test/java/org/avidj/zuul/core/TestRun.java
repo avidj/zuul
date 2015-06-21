@@ -1,16 +1,24 @@
 package org.avidj.zuul.core;
 
+import java.lang.management.ManagementFactory;
+import java.lang.management.ThreadInfo;
+import java.lang.management.ThreadMXBean;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicInteger;
 
+import org.avidj.util.Strings;
 import org.avidj.zuul.core.ConcurrentTest.Actions;
 import org.avidj.zuul.core.ConcurrentTest.NoArgActions;
 import org.avidj.zuul.core.ConcurrentTest.NoArgActionsWrapper;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 class TestRun {
+  private static final Logger LOG = LoggerFactory.getLogger(TestRun.class);
   private static final long SLEEP_INTERVAL = 5;
   private final List<Throwable> throwables;
   private final CountDownLatch startFlag = new CountDownLatch(1);
@@ -19,17 +27,23 @@ class TestRun {
   private final Object lock = new Object();
   private final ConcurrentTest concurrentTest;
 
+  // TODO: only use existing ticks and stop if none are left (starvation, missed signals, etc)
   private int tick = 0;
 
   // Increments the tick counter when all threads are blocked, waiting, or terminated, so as to 
   // allow waiting threads to continue
   private final Runnable threadObserver = new Runnable() {
+    final ThreadMXBean threadMxBean = ManagementFactory.getThreadMXBean();
+
     @Override
     public void run() {
       while ( finished.getCount() > 0 ) {
         if ( noThreadsRunning() ) {
           synchronized ( lock ) {
             if ( noThreadsRunning() ) {
+              if ( javaLevelDeadlockDetected() ) {
+                throw new RuntimeException();
+              }
               tick++;
               lock.notifyAll();
             }
@@ -42,6 +56,7 @@ class TestRun {
         }
       }
     }
+    
     private boolean noThreadsRunning() {
       for ( Thread t : concurrentTest.threads ) {
         if ( t.getState() == Thread.State.RUNNABLE ) {
@@ -49,6 +64,31 @@ class TestRun {
         }
       }
       return true;
+    }
+    
+    private boolean javaLevelDeadlockDetected() {
+      for ( Thread t : concurrentTest.threads ) {
+        if ( t.getState() == Thread.State.BLOCKED ) {
+          List<Long> loop = new LinkedList<Long>();
+          ThreadInfo currentInfo = threadMxBean.getThreadInfo(t.getId());
+          loop.add(t.getId());
+          Long blockerId;
+          do {
+            blockerId = currentInfo.getLockOwnerId();
+            loop.add(blockerId);
+            currentInfo = threadMxBean.getThreadInfo(blockerId);
+          } while ( currentInfo.getThreadState() == Thread.State.BLOCKED && !loop.get(0).equals(blockerId) );
+          
+          if ( currentInfo.getThreadState() == Thread.State.BLOCKED ) {
+            LOG.info(Strings.join(loop));
+            return true;
+          }
+          // TODO: Thread.holdsLock(obj);
+          // blockerInfo.getLockedMonitors();
+        }
+      }
+      
+      return false;
     }
   };
   

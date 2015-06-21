@@ -2,10 +2,6 @@ package org.avidj.zuul.core;
 
 import static org.avidj.zuul.core.ConcurrentTest.thread;
 import static org.avidj.zuul.core.ConcurrentTest.threads;
-import static org.hamcrest.Matchers.is;
-import static org.junit.Assert.assertThat;
-
-import java.util.Arrays;
 
 import org.junit.Test;
 import org.slf4j.Logger;

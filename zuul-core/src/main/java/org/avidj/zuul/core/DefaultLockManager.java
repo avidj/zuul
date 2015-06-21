@@ -436,6 +436,7 @@ public class DefaultLockManager implements LockManager {
   }
 
   private static boolean invariants(LockTreeNode root, List<String> path) {
+    // TODO: implement proper intention locks and counts. Then lock counts corrected can be asserted 
 //    synchronized ( root ) {
 //      return currentThreadHoldsNoLocksOnPath(root, path)
 //          && lockCountsAreCorrect(root)
