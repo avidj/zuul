@@ -138,7 +138,6 @@ public class ConcurrentLockManagerTest {
           assertThat(success, is(true));
         }))
       .repeat(10000)
-      .killAfter(1000)
       .assertSuccessCount(1); // either one of the threads must fail
   }
   
