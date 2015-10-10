@@ -1,0 +1,6 @@
+* write more tests (first debug concurrent test framework)
+* use proper intention locks to enable correct assertions
+* self test with more assertions
+* distribute with Paxos
+* let nodes communicate in a binary format
+* compress communication between nodes by computing huffman codes for common prefixes
