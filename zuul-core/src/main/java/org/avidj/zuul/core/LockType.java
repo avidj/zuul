@@ -2,6 +2,8 @@ package org.avidj.zuul.core;
 
 import java.util.List;
 
+import org.avidj.zuul.core.DefaultLockManager.LockTreeNodeVisitor;
+
 /*
  * #%L
  * zuul-core
@@ -25,28 +27,45 @@ import java.util.List;
 public enum LockType {
   READ  ( 
       (lm, session, path, scope) -> lm.readLock(session, path, scope),
-      (root, path) -> DefaultLockManager.visit(root, path, DefaultLockManager.DEC_READ_COUNTS) ),
-  WRITE ( (lm, session, path, scope) -> lm.writeLock(session, path, scope),
-      (root, path) -> DefaultLockManager.visit(root, path, DefaultLockManager.DEC_WRITE_COUNTS) );
+      n -> { n.is--; n.shared++; },
+      n -> n.is--,
+      n -> n.shared--),
+  WRITE ( 
+      (lm, session, path, scope) -> lm.writeLock(session, path, scope),
+      n -> { n.ix--; n.exclusive++; },
+      n -> n.ix--,
+      n -> n.exclusive--);
   
   private final LockOperation lo;
-  private DecrementPath dec;
+  private final LockTreeNodeVisitor convert;
+  private final LockTreeNodeVisitor decIntention;
+  private final LockTreeNodeVisitor decLock;
   
-  private LockType(LockOperation lo, DecrementPath dec) {
+  private LockType(
+      LockOperation lo, 
+      LockTreeNodeVisitor convert, 
+      LockTreeNodeVisitor decIntention, 
+      LockTreeNodeVisitor decLock) {
     this.lo = lo;
-    this.dec = dec;
+    this.convert = convert;
+    this.decIntention = decIntention;
+    this.decLock = decLock;
   }
-  
-  void decCounts(LockTreeNode root, List<String> path) {
-    dec.dec(root, path);
+
+  void convertCounts(LockTreeNode root, List<String> path) {
+    DefaultLockManager.visit(root, path, convert);
+  }
+
+  void decIntention(LockTreeNode root, List<String> path) {
+    DefaultLockManager.visit(root, path, decIntention);
+  }
+
+  void decLock(LockTreeNode root, List<String> path) {
+    DefaultLockManager.visit(root, path, decLock);
   }
   
   boolean lock(LockManager lm, Session session, List<String> path, LockScope scope) {
     return lo.lock(lm, session.id, path, scope);
-  }
-  
-  private interface DecrementPath {
-    void dec(LockTreeNode root, List<String> path);
   }
   
   private interface LockOperation {

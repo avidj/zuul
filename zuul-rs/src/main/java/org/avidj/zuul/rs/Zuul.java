@@ -70,8 +70,9 @@ public class Zuul {
   /**
    * Obtain, upgrade, or downgrade a lock for the given {@code session}. Upgrades and downgrades are
    * possible along two dimensions: type and scope. Lock types are read ({@literal aka.} shared) and
-   * write ({@literal aka.} exlusive). Lock scopes are shallow and deep. A shallow lock is only with
-   * respect to the specified lock path, a deep lock also locks the whole subtree below that path.
+   * write ({@literal aka.} exclusive). Lock scopes are shallow and deep. A shallow lock is only 
+   * with respect to the specified lock path, a deep lock also locks the whole subtree below that 
+   * path.
    * 
    * @param session the session to obtain a lock for 
    * @param type the type of lock to obtain, possible values are ({@code r})ead and 

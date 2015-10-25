@@ -27,7 +27,6 @@ import static org.avidj.zuul.core.Lock.newLock;
 
 import com.google.common.collect.ImmutableSet;
 
-import org.avidj.zuul.core.DefaultLockManager;
 import org.avidj.zuul.core.LockManager;
 import org.avidj.zuul.core.LockScope;
 import org.avidj.zuul.core.LockType;
@@ -39,13 +38,18 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 
-public class LockManagerTest {
+public abstract class LockManagerTest {
   
   private LockManager lm;
+  
+  /**
+   * @return the lock manager to be tested
+   */
+  protected abstract LockManager lockManager();
 
   @Before
   public void before() {
-    lm = new DefaultLockManager();
+    lm = lockManager();
     lm.setSessionTimeout(100000000);
   }
   

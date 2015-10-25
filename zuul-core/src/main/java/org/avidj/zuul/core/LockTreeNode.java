@@ -47,11 +47,17 @@ public class LockTreeNode {
 
   private Lock exclusiveLock;
 
-  // The number of nested read locks.
-  int reads = 0;
+  int is = 0;
   
-  // The number of nested write locks.
-  int writes = 0;  
+  // The number of nested shared locks.
+  int shared = 0;
+  
+  int ix = 0; 
+  
+  // The number of nested exclusive locks.
+  int exclusive = 0;
+  
+  int six = 0;
   
   // TODO: use a patricia tree instead?
   final Map<Object, LockTreeNode> children = new HashMap<>();
@@ -61,7 +67,7 @@ public class LockTreeNode {
     return new LockTreeNode(key, parent);
   }
   
-  private LockTreeNode(String key, LockTreeNode parent) {
+  LockTreeNode(String key, LockTreeNode parent) {
     this.key = (key != null ) ? key.intern() : null;
     this.parent = parent;
   }
@@ -74,8 +80,8 @@ public class LockTreeNode {
   public String toString() {
     return new StringBuilder("Node(")
         .append("key = ").append(key)
-        .append(", writes = ").append(writes)
-        .append(", reads = ").append(reads)
+        .append(", writes = ").append(exclusive)
+        .append(", reads = ").append(shared)
         .append(", exclusive = ").append(exclusiveLock)
         .append(", shared = {").append(Strings.join(sharedLocks.values())).append("}")
         .append(")")
@@ -109,11 +115,11 @@ public class LockTreeNode {
       Preconditions.checkState(exclusiveLock == null, "exclusive lock already exists");
       exclusiveLock = lock;
     } else {
-      assert ( !sharedLocks.containsKey(lock.session) );
+      assert ( !sharedLocks.containsKey(lock.session) ) : "session already has a lock on " + this;
       sharedLocks.put(lock.session, lock);
     }
     if ( lock.scope == LockScope.DEEP ) {
-      deepLocks .add(lock);
+      deepLocks.add(lock);
     }
     assert ( exclusiveLock == null || exclusiveLock.type == LockType.WRITE );
     assert ( locksCompatible() );
@@ -151,25 +157,30 @@ public class LockTreeNode {
         || ( sharedLocks.size() == 1 && sharedLocks.get(session) != null );
   }
 
+  // the number of shared and exclusive locks in the subtree rooted at this lock node
   int locksInSubtree() {
-    return ( reads + writes );
+    return ( shared + exclusive );
   }
   
+  // true, iff there are no locks in the subtree rooted at this lock node
   boolean subtreeEmpty() {
     return ( locksInSubtree() == 0 );
   }
 
+  // obtain the java-level lock on this lock node
   void lock() {
     LOG.trace("try lock {}", key != null ? key : "root");
     mutex.lock();
     LOG.trace("locked {}", key != null ? key : "root");
   }
 
+  // release the java-level lock on this lock node
   void unlock() {
     mutex.unlock();
     LOG.trace("unlocked {}", key != null ? key : "root");
   }
 
+  // true iff the current thread holds the java-level lock on this lock node
   boolean isHeldByCurrentThread() {
     return mutex.isHeldByCurrentThread();
   }

@@ -46,35 +46,7 @@ import java.util.Timer;
 public class DefaultLockManager implements LockManager {
   private static final Logger LOG = LoggerFactory.getLogger(DefaultLockManager.class);
   private static final long DEFAULT_SESSION_TIMEOUT = 50000;
-  
-  static final LockTreeNodeVisitor DEC_READ_COUNTS = new LockTreeNodeVisitor() {
-    @Override
-    public LockTreeNode visit(LockTreeNode node) {
-      synchronized ( node ) {
-        node.reads--;
-        if ( node.subtreeEmpty() && node.parent != null ) {
-          node.parent.children.remove(node.key);
-          return null;
-        }
-        return node;
-      }
-    }
-  };
-  
-  static final LockTreeNodeVisitor DEC_WRITE_COUNTS = new LockTreeNodeVisitor() {
-    @Override
-    public LockTreeNode visit(LockTreeNode node) {
-      synchronized ( node ) {
-        node.writes--;
-        if ( node.subtreeEmpty() && node.parent != null ) {
-          node.parent.children.remove(node.key);
-          return null;
-        }
-        return node;
-      }
-    }
-  };
-
+ 
   private final Map<String, Session> sessions = new HashMap<>();
   private final Timer sessionTimer = new Timer();
   private final LockTreeNode root = treeNode(null, null);
@@ -140,7 +112,7 @@ public class DefaultLockManager implements LockManager {
         final Lock lock = node.getLock(session.id);
         if ( lock != null ) {
           node.removeLock(lock);
-          lock.type.decCounts(root, lock.key);
+          lock.type.decLock(root, lock.key);
         }
       }
     }
@@ -165,7 +137,7 @@ public class DefaultLockManager implements LockManager {
       if ( lock.count == 0 ) {
         node.removeLock(lock);
         session.removeLock(lock.key);
-        lock.type.decCounts(root, path);
+        lock.type.decLock(root, path);
       }
     } finally {
       node.unlock();
@@ -183,13 +155,14 @@ public class DefaultLockManager implements LockManager {
     LockTreeNode current = root;
 
     current.lock();
-    if ( deepLockByOtherSession(current, id, LockType.READ) ) {
+    if ( deepLockedByOther(current, id, LockType.READ) ) {
       current.unlock();
       assert ( invariants(root, path) );
       return false;
     }
     synchronized ( current ) {
-      current.writes++;
+      current.exclusive++;
+//      current.ix++;
     }
     
     final int n = path.size();
@@ -200,14 +173,15 @@ public class DefaultLockManager implements LockManager {
       if ( current != null ) {
         current.lock();
         prev.unlock();
-        if ( deepLockByOtherSession(current, id, LockType.READ) ) {
+        if ( deepLockedByOther(current, id, LockType.READ) ) {
           current.unlock();
-          LockType.WRITE.decCounts(root, path.subList(0, pos));
+          LockType.WRITE.decLock(root, path.subList(0, pos));
           assert ( invariants(root, path) );
           return false;
         }
         synchronized ( current ) {
-          current.writes++;
+          current.exclusive++;
+//          current.ix++;
         }
       } else {
         break;
@@ -219,14 +193,17 @@ public class DefaultLockManager implements LockManager {
       prev.unlock();
       prev.children.put(path.get(pos), current);
       synchronized ( current ) {
-        current.writes++;
+        current.exclusive++;
+//        current.ix++;
       }
       prev = current;
     }
     boolean success = setWriteLock(current, session, path, scope);
     current.unlock();
     if ( !success ) {
-      LockType.WRITE.decCounts(root, path);
+      LockType.WRITE.decLock(root, path);
+//    } else {
+//      LockType.WRITE.convertCounts(root, path);
     }
     assert ( invariants(root, path) );
     return success;
@@ -241,31 +218,35 @@ public class DefaultLockManager implements LockManager {
     LockTreeNode current = root;
 
     current.lock();
-    if ( deepLockByOtherSession(current, id, LockType.WRITE) ) {
+    if ( deepLockedByOther(current, id, LockType.WRITE) ) {
       current.unlock();
       assert ( invariants(root, path) );
       return false;
     }
     synchronized ( current ) {
-      current.reads++;
+      current.shared++;
+//      current.is++;
     }
     
     final int n = path.size();
     int pos;
+    
+    // traverse through path from root down into tree
     for ( pos = 0; pos < n; pos++ ) {
       prev = current;
       current = current.children.get(path.get(pos));
       if ( current != null ) {
         current.lock();
         prev.unlock();
-        if ( deepLockByOtherSession(current, id, LockType.WRITE) ) {
+        if ( deepLockedByOther(current, id, LockType.WRITE) ) {
           current.unlock();
-          LockType.READ.decCounts(root, path.subList(0, pos));
+          LockType.READ.decLock(root, path.subList(0, pos));
           assert ( invariants(root, path) );
           return false;
         }
         synchronized ( current ) {
-          current.reads++;
+          current.shared++;
+//          current.is++;
         }
       } else {
         break;
@@ -277,7 +258,8 @@ public class DefaultLockManager implements LockManager {
       prev.unlock();
       prev.children.put(path.get(pos), current);
       synchronized ( current ) {
-        current.reads++;
+        current.shared++;
+//        current.is++;
       }
       prev = current;
     }
@@ -285,7 +267,9 @@ public class DefaultLockManager implements LockManager {
     boolean success = setReadLock(current, session, path, scope);
     current.unlock();
     if ( !success ) {
-      LockType.READ.decCounts(root, path);
+      LockType.READ.decLock(root, path);
+//    } else {
+//      LockType.READ.convertCounts(root, path);
     }
     LOG.trace("check invariants");
     assert ( invariants(root, path) );
@@ -295,7 +279,7 @@ public class DefaultLockManager implements LockManager {
   private boolean setReadLock(
       LockTreeNode node, Session session, List<String> path, LockScope scope) {
     synchronized ( node ) {
-      if ( scope == LockScope.DEEP && node.writes > 0 ) {
+      if ( scope == LockScope.DEEP && node.exclusive > 0 ) { // TODO: what if current session has the deep locks?
         return false;
       }
     }
@@ -308,7 +292,7 @@ public class DefaultLockManager implements LockManager {
     if ( existing != null ) {
       node.removeLock(existing);
       node.unlock();
-      existing.type.decCounts(root, path);
+      existing.type.decLock(root, path);
       node.lock();
     }
     
@@ -342,7 +326,7 @@ public class DefaultLockManager implements LockManager {
     
     // on lock type upgrade, update counts
     node.unlock();
-    existing.type.decCounts(root, path);
+    existing.type.decLock(root, path);
     node.lock();
     Lock newLock = existing.writeLock(scope);
     node.removeLock(existing);
@@ -381,19 +365,30 @@ public class DefaultLockManager implements LockManager {
     LockTreeNode current = root;
     
     current.lock();
-    visitor.visit(current);
+    visit(current, visitor);
     
     for ( int i = 0, n = path.size(); i < n && current != null ; i++ ) {
       prev = current;
       current = current.children.get(path.get(i));
       if ( current != null ) {
         current.lock();
-        current = visitor.visit(current);
+        current = visit(current, visitor);
       }
       prev.unlock();
     }
     if ( current != null ) {
       current.unlock();
+    }
+  }
+  
+  static LockTreeNode visit(LockTreeNode node, LockTreeNodeVisitor visitor) {
+    synchronized ( node ) {
+      visitor.visit(node);
+      if ( node.subtreeEmpty() && node.parent != null ) {
+        node.parent.children.remove(node.key);
+        return null;
+      }
+      return node;
     }
   }
 
@@ -421,14 +416,16 @@ public class DefaultLockManager implements LockManager {
     for ( int i = 0, n = path.size(); i < n; i++ ) {
       String step = path.get(i);      
       current = current.children.get(step);
-      synchronized ( current ) {
-        if ( current == null ) {
-          return true;
-        } else if ( !current.hasExclusiveLock() 
-            && current.getSharedLocks().isEmpty() 
-            && current.children.isEmpty() ) {
-          LOG.error("No locks and no children in node: {}", Strings.join(path.subList(0, i + 1)));
-          return false;
+      if ( current == null ) {
+        return true;
+      } else {
+        synchronized ( current ) {
+          if ( !current.hasExclusiveLock() 
+              && current.getSharedLocks().isEmpty() 
+              && current.children.isEmpty() ) {
+            LOG.error("No locks and no children in node: {}", Strings.join(path.subList(0, i + 1)));
+            return false;
+          }
         }
       }
     }
@@ -436,7 +433,7 @@ public class DefaultLockManager implements LockManager {
   }
 
   private static boolean invariants(LockTreeNode root, List<String> path) {
-    // TODO: implement proper intention locks and counts. Then lock counts corrected can be asserted 
+//    // TODO: implement proper intention locks and counts. Then lock counts corrected can be asserted 
 //    synchronized ( root ) {
 //      return currentThreadHoldsNoLocksOnPath(root, path)
 //          && lockCountsAreCorrect(root)
@@ -445,9 +442,7 @@ public class DefaultLockManager implements LockManager {
     return true;
   }
 
-  private static boolean deepLockByOtherSession(
-      LockTreeNode current, String session, LockType type) {
-    
+  private static boolean deepLockedByOther(LockTreeNode current, String session, LockType type) {
     switch ( type ) {
       case READ:
         for ( Lock lock : current.getDeepLocks() ) {
@@ -467,8 +462,8 @@ public class DefaultLockManager implements LockManager {
 
   private static boolean lockCountsAreCorrect(LockTreeNode root) {    
     synchronized ( root ) {
-      return readCount(root) == root.reads
-          && writeCount(root) == root.writes;
+      return readCount(root) == root.shared
+          && writeCount(root) == root.exclusive;
     }
   }
 
@@ -478,9 +473,9 @@ public class DefaultLockManager implements LockManager {
       count += readCount(child);
     }
     synchronized ( node ) {
-      assert ( count == node.reads ) : 
+      assert ( count == node.shared ) : 
         String.format("node = %1$s, reads = %2$d, actual = %3$d", 
-            Strings.join(pathTo(node)), node.reads, count);
+            Strings.join(pathTo(node)), node.shared, count);
     }
     return count;
   }
@@ -492,9 +487,9 @@ public class DefaultLockManager implements LockManager {
       count += writeCount(child);
     }
     synchronized ( node ) {
-      assert ( count == node.writes ) : 
+      assert ( count == node.exclusive ) : 
         String.format("node = %1$s, writes = %2$d, actual = %3$d", 
-            Strings.join(pathTo(node)), node.writes, count);
+            Strings.join(pathTo(node)), node.exclusive, count);
     }
     return count;
   }
@@ -509,6 +504,6 @@ public class DefaultLockManager implements LockManager {
   }
 
   interface LockTreeNodeVisitor {
-    LockTreeNode visit(LockTreeNode node);
+    void visit(LockTreeNode node);
   }
 }

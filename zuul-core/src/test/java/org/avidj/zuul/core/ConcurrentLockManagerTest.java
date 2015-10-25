@@ -34,11 +34,8 @@ import org.avidj.zuul.core.LockScope;
 import org.avidj.zuul.core.LockType;
 import org.junit.Before;
 import org.junit.Test;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 public class ConcurrentLockManagerTest {
-  private static final Logger LOG = LoggerFactory.getLogger(ConcurrentLockManagerTest.class);
   private LockManager lm;
 
   @Before
@@ -140,17 +137,4 @@ public class ConcurrentLockManagerTest {
       .repeat(10000)
       .assertSuccessCount(1); // either one of the threads must fail
   }
-  
-//  @Test
-//  public void testForDeadlocks() {
-//    ConcurrentTest threads = threads(
-//        thread().exec(() -> {
-//          boolean success = lm.readLock("1", key("a", "b", "c", "d", "e", "f"), LockScope.DEEP);
-//          assertThat(success, is(true));
-//        }).replicate(100))
-//      .repeat(100)
-//      .killAfter(1000)
-//      .run();
-//    assertThat(threads.successCount(), is(1)); // either one of the threads must fail
-//  }
 }
