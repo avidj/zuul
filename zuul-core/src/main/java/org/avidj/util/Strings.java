@@ -38,6 +38,13 @@ public final class Strings {
     return join(", ", iterable);
   }
 
+  /**
+   * Given an iterable creates a string representation where all elements are separated by the given
+   * separator.
+   * @param separator the separator to use between the objects in the result string
+   * @param iterable the iterable to join, not {@code null}
+   * @return a string containing all the elements separated by commas  
+   */
   public static String join(String separator, Iterable<?> iterable) {
     Iterator<?> iter = iterable.iterator();
     if ( !iter.hasNext() ) {
