@@ -1,5 +1,6 @@
 * write more tests (first debug concurrent test framework)
 * use proper intention locks to enable correct assertions
+* (client) library with AutoCloseable locks hiding the service
 * self test with more assertions
 * distribute with Paxos
 * let nodes communicate in a binary format
