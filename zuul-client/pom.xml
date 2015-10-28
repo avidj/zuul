@@ -35,10 +35,6 @@
       <groupId>org.avidj</groupId>
       <artifactId>zuul-core</artifactId>
     </dependency>
-    <dependency>
-      <groupId>org.avidj</groupId>
-      <artifactId>zuul-rs</artifactId>
-    </dependency>
     
     <dependency>
       <groupId>junit</groupId>
