@@ -1,13 +1,11 @@
-* write more tests (first debug concurrent test framework)
-* create a unified interface, must match
-** REST service
-** embedded?
-** input to client library (client library shall be able to wrap REST service and embedded)
 * (client) library with AutoCloseable locks hiding the service
 * client to wrap the RESTful service (implements LockManager)
+* test REST client with core lock manager and AutoCloseable lock manager tests
+* write more concurrent tests (first debug concurrent test framework)
 * use proper intention locks to enable correct assertions
 * self test with more assertions
 
 * distribute with Paxos
-* let nodes communicate in a binary format
+* test distributed Zuul with AutoCloseable lock manager tests
+* let nodes communicate in a binary format with each other (binary client and server interfaces)
 * compress communication between nodes by computing huffman codes for common prefixes
