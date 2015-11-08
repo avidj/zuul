@@ -25,15 +25,16 @@ import com.google.common.base.Preconditions;
 import org.avidj.zuul.core.Lock;
 import org.avidj.zuul.core.LockManager;
 import org.avidj.zuul.core.LockScope;
+import org.avidj.zuul.core.LockType;
 
 import java.util.Collection;
 import java.util.List;
 
-public class AutoClosableLockManager {
+public class AutoCloseableLockManager {
   private final String session;
   private final LockManager lockManager;
 
-  public AutoClosableLockManager(String session, LockManager lockManager) {
+  public AutoCloseableLockManager(String session, LockManager lockManager) {
     Preconditions.checkNotNull(session);
     Preconditions.checkNotNull(lockManager);
     this.session = session;
@@ -48,15 +49,30 @@ public class AutoClosableLockManager {
     return lockManager.getLocks(session);
   }
 
-  public AutoCloseableLock lock(List<String> path, LockScope scope) {
-    return new AutoCloseableLock(this.lockManager, this.session, path, scope);
+  public AutoCloseableLock lock(List<String> path, LockType lockType, LockScope scope) {
+    AutoCloseableLock lock = new AutoCloseableLock(this.lockManager, this.session, path, scope);
+    switch ( lockType ) {
+    case READ: 
+      return lock.readLock();
+    case WRITE: 
+      return lock.writeLock();
+    }
+    throw new IllegalArgumentException("Unknown lock type " + lockType);
+  }
+
+  public AutoCloseableLock readLock(List<String> path) {
+    return lock(path, LockType.READ, LockScope.SHALLOW);
+  }
+
+  public AutoCloseableLock writeLock(List<String> path) {
+    return lock(path, LockType.WRITE, LockScope.SHALLOW);
   }
 
   public AutoCloseableLock readLock(List<String> path, LockScope scope) {
-    return lock(path, scope).readLock();
+    return lock(path, LockType.READ, scope);
   }
 
   public AutoCloseableLock writeLock(List<String> path, LockScope scope) {
-    return lock(path, scope).writeLock();
+    return lock(path, LockType.WRITE, scope);
   }
 }

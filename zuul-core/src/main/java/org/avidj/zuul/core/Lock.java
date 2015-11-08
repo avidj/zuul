@@ -35,7 +35,7 @@ public final class Lock {
   final LockScope scope;
   int count;
   
-  static Lock newLock(String session, List<String> path, LockType type, LockScope scope) {
+  public static Lock newLock(String session, List<String> path, LockType type, LockScope scope) {
     return new Lock(session, path, type, scope, 1);
   }
   

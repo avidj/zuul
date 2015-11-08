@@ -67,4 +67,9 @@ public class Session {
   public Set<LockTreeNode> getLocks() {
     return Collections.unmodifiableSet(new HashSet<LockTreeNode>(locks.values()));
   }
+  
+  @Override
+  public String toString() {
+    return new StringBuilder("Session( id = ").append(id).append(")").toString();
+  }
 }
