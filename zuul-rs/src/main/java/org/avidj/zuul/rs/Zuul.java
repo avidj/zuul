@@ -21,6 +21,7 @@ package org.avidj.zuul.rs;
  */
 
 
+import org.avidj.zuul.core.Lock;
 import org.avidj.zuul.core.LockManager;
 import org.avidj.zuul.core.LockScope;
 import org.avidj.zuul.core.LockType;
@@ -40,6 +41,7 @@ import org.springframework.web.util.UriComponents;
 import org.springframework.web.util.UriComponentsBuilder;
 
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 
@@ -47,7 +49,7 @@ import javax.servlet.http.HttpServletRequest;
 
 @Controller
 @RequestMapping
-public class Zuul {
+public class Zuul implements LockManager {
   private static final String ACK = "ack";
   
   @Autowired
@@ -127,6 +129,67 @@ public class Zuul {
     HttpHeaders headers = new HttpHeaders();
     headers.setLocation(uriComponents.toUri());
     return new ResponseEntity<String>(headers, httpStatus);
+  }
+
+  @Override
+  public void setSessionTimeout(long timeoutMillis) {
+    // TODO Auto-generated method stub
+    
+  }
+
+  @Override
+  public Collection<Lock> getLocks(String session) {
+    // TODO Auto-generated method stub
+    return null;
+  }
+
+  @Override
+  public boolean readLock(String session, List<String> path, LockScope scope) {
+    // TODO Auto-generated method stub
+    return false;
+  }
+
+  @Override
+  public boolean writeLock(String session, List<String> path, LockScope scope) {
+    // TODO Auto-generated method stub
+    return false;
+  }
+
+  @Override
+  public boolean lock(String sessionId, List<String> path, LockType type, LockScope scope) {
+    // TODO Auto-generated method stub
+    return false;
+  }
+
+  @Override
+  public boolean multiLock(String sessionId, List<List<String>> paths, LockType type,
+      LockScope scope) {
+    // TODO Auto-generated method stub
+    return false;
+  }
+
+  @Override
+  public boolean release(String session, List<String> path) throws IllegalStateException {
+    // TODO Auto-generated method stub
+    return false;
+  }
+
+  @Override
+  public int release(String session, Collection<List<String>> paths) {
+    // TODO Auto-generated method stub
+    return 0;
+  }
+
+  @Override
+  public void release(String session) {
+    // TODO Auto-generated method stub
+    
+  }
+
+  @Override
+  public void heartbeat(String session) {
+    // TODO Auto-generated method stub
+    
   }
 
   private static LockScope getLockScope(String scope) {

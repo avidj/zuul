@@ -43,8 +43,8 @@ import java.util.Timer;
  * when traversing and only released after obtaining the mutex for the nested node on a path. 
  */
 @Component
-public class DefaultLockManager implements LockManager {
-  private static final Logger LOG = LoggerFactory.getLogger(DefaultLockManager.class);
+public class DefaultEmbeddedLockManager implements EmbeddedLockManager {
+  private static final Logger LOG = LoggerFactory.getLogger(DefaultEmbeddedLockManager.class);
   private static final long DEFAULT_SESSION_TIMEOUT = 50000;
  
   private final Map<String, Session> sessions = new HashMap<>();

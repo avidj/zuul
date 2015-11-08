@@ -1,15 +1,7 @@
 package org.avidj.zuul.core;
 
-import com.google.common.base.Preconditions;
-
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import java.util.Collection;
-import java.util.Collections;
-import java.util.HashSet;
 import java.util.List;
-import java.util.Set;
 
 /*
  * #%L
@@ -37,13 +29,14 @@ import java.util.Set;
  * cannot successfully finish, it shall leave all affected objects as they were before the call.
  */
 public interface LockManager {
-  static final Logger LOG = LoggerFactory.getLogger(LockManager.class);
 
-  public void setSessionTimeout(long sessionTimeout);
-
-  public Session getSession(String id);
-
-  public LockTreeNode getRoot();
+  /**
+   * After a timeout all locks of a session are released if that session is not pinged or otherwise
+   * accessed through lock operations.
+   * 
+   * @param timeoutMillis number of milliseconds until sessions time out and locks are released
+   */
+  public void setSessionTimeout(long timeoutMillis);
 
   /**
    * The set of all locks held by the given session. The result may not be 
@@ -90,14 +83,7 @@ public interface LockManager {
    * @param scope the lock scope, not {@code null}
    * @return {@code true}, iff the lock attempt was successful
    */
-  public default boolean lock(String sessionId, List<String> path, LockType type, LockScope scope) {
-    Preconditions.checkNotNull(sessionId, "sessionId must not be null");
-    Preconditions.checkNotNull(path, "path must not be null");
-    Preconditions.checkNotNull(type, "type must not be null");
-    Preconditions.checkNotNull(scope, "scope must not be null");
-    final Session session = getSession(sessionId);
-    return type.lock(this, session, path, scope);
-  }
+  public boolean lock(String sessionId, List<String> path, LockType type, LockScope scope);
 
   /**
    * Try to obtain multiple locks of the given {@code type} and {@code scope} for the given 
@@ -112,33 +98,8 @@ public interface LockManager {
    * @param scope the lock scope, not {@code null}
    * @return {@code true}, iff the lock attempt was successful
    */
-  public default boolean multiLock(
-      String sessionId, List<List<String>> paths, LockType type, LockScope scope) {
-    Preconditions.checkNotNull(sessionId, "session must not be null");
-    Preconditions.checkNotNull(paths, "paths must not be null");
-    Preconditions.checkArgument(!paths.isEmpty(), "paths must not be empty");
-    Preconditions.checkNotNull(type, "type must not be null");
-    Preconditions.checkNotNull(scope, "scope must not be null");
-    sessionId = sessionId.intern();
-    
-    Collections.sort(paths, LockUtils.pathComparator());
-    boolean success = true;
-    Set<List<String>> obtained = new HashSet<>();
-    for ( List<String> path : paths ) {
-      success &= lock(sessionId, path, type, scope);
-      if ( success ) {
-        obtained.add(path);
-      } else {
-        break;
-      }
-    }
-    if ( !success ) {
-      for ( List<String> path : obtained ) {
-        release(sessionId, path);
-      }
-    }
-    return success;
-  }
+  public boolean multiLock(
+      String sessionId, List<List<String>> paths, LockType type, LockScope scope);
   
   /**
    * Releases the given {@code lock} for the given {@code session}. As locks are reentrant, they
@@ -159,15 +120,7 @@ public interface LockManager {
    * @param paths the locks to release
    * @return the number of locks successfully released
    */
-  public default int release(String session, Collection<List<String>> paths) {
-    int released = 0;
-    for ( List<String> path : paths ) {
-      if ( release(session, path) ) {
-        released++;
-      }
-    }
-    return released;
-  }
+  public int release(String session, Collection<List<String>> paths);
   
   /**
    * Release all locks for the given session. Unlike the other methods 
@@ -184,5 +137,4 @@ public interface LockManager {
    * @param session the session to keep alive
    */
   public void heartbeat(String session);
-
 }

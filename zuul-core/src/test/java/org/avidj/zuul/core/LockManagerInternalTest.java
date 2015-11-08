@@ -27,7 +27,6 @@ import static org.avidj.zuul.core.Lock.newLock;
 
 import com.google.common.collect.ImmutableSet;
 
-import org.avidj.zuul.core.LockManager;
 import org.avidj.zuul.core.LockScope;
 import org.avidj.zuul.core.LockType;
 import org.junit.Before;
@@ -38,14 +37,14 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 
-public abstract class LockManagerTest {
+public abstract class LockManagerInternalTest {
   
-  private LockManager lm;
+  private EmbeddedLockManager lm;
   
   /**
    * @return the lock manager to be tested
    */
-  protected abstract LockManager lockManager();
+  protected abstract EmbeddedLockManager lockManager();
 
   @Before
   public void before() {

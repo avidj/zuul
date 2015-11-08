@@ -12,11 +12,10 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 
-import org.avidj.zuul.core.DefaultLockManager;
+import org.avidj.zuul.core.DefaultEmbeddedLockManager;
 import org.avidj.zuul.core.LockManager;
 import org.avidj.zuul.core.LockScope;
 import org.avidj.zuul.core.LockType;
-import org.hamcrest.Matcher;
 import org.junit.Before;
 import org.junit.Test;
 
@@ -30,20 +29,20 @@ public class AutoClosableLockTest {
   private AutoCloseableLockManager lm2;
   
   /**
-   * @return the lock manager to be tested
+   * @return an implementation of the underlying lock manager to be wrapped by the client library
    */
-  protected AutoCloseableLockManager lockManager(String session) {
-    return new AutoCloseableLockManager(session, underlyingLm);
+  protected LockManager lockManager() {
+    return new DefaultEmbeddedLockManager();
   }
 
   @Before
   public void before() {
-    underlyingLm = new DefaultLockManager();
+    underlyingLm = lockManager();
 
-    lm1 = lockManager(SESSION_1);
+    lm1 = new AutoCloseableLockManager(SESSION_1, underlyingLm);
     lm1.setSessionTimeout(100000000);
     
-    lm2 = lockManager(SESSION_2);
+    lm2 = new AutoCloseableLockManager(SESSION_2, underlyingLm);
     lm2.setSessionTimeout(100000000);
   }
   

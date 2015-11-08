@@ -20,7 +20,7 @@ package org.avidj.zuul.core;
  * #L%
  */
 
-import static org.avidj.zuul.core.LockManagerTest.key;
+import static org.avidj.zuul.core.LockManagerInternalTest.key;
 import static org.hamcrest.CoreMatchers.is;
 import static org.hamcrest.Matchers.lessThan;
 import static org.hamcrest.Matchers.greaterThan;

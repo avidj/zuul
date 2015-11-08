@@ -22,13 +22,13 @@ package org.avidj.zuul.core;
 
 import static org.avidj.threst.ConcurrentTest.thread;
 import static org.avidj.threst.ConcurrentTest.threads;
-import static org.avidj.zuul.core.LockManagerTest.key;
+import static org.avidj.zuul.core.LockManagerInternalTest.key;
 import static org.junit.Assert.assertThat;
 import static org.hamcrest.Matchers.is;
 
 import java.util.Arrays;
 
-import org.avidj.zuul.core.DefaultLockManager;
+import org.avidj.zuul.core.DefaultEmbeddedLockManager;
 import org.avidj.zuul.core.LockManager;
 import org.avidj.zuul.core.LockScope;
 import org.avidj.zuul.core.LockType;
@@ -40,7 +40,7 @@ public class ConcurrentLockManagerTest {
 
   @Before
   public void before() {
-    lm = new DefaultLockManager();
+    lm = new DefaultEmbeddedLockManager();
   }
   
   @Test

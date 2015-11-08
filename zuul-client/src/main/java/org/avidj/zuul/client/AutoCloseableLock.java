@@ -20,13 +20,13 @@ package org.avidj.zuul.client;
  * #L%
  */
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Stack;
-
 import org.avidj.zuul.core.LockManager;
 import org.avidj.zuul.core.LockScope;
 import org.avidj.zuul.core.LockType;
+
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Stack;
 
 public class AutoCloseableLock implements AutoCloseable {
   

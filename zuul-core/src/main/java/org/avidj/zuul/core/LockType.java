@@ -2,7 +2,7 @@ package org.avidj.zuul.core;
 
 import java.util.List;
 
-import org.avidj.zuul.core.DefaultLockManager.LockTreeNodeVisitor;
+import org.avidj.zuul.core.DefaultEmbeddedLockManager.LockTreeNodeVisitor;
 
 /*
  * #%L
@@ -53,15 +53,15 @@ public enum LockType {
   }
 
   void convertCounts(LockTreeNode root, List<String> path) {
-    DefaultLockManager.visit(root, path, convert);
+    DefaultEmbeddedLockManager.visit(root, path, convert);
   }
 
   void decIntention(LockTreeNode root, List<String> path) {
-    DefaultLockManager.visit(root, path, decIntention);
+    DefaultEmbeddedLockManager.visit(root, path, decIntention);
   }
 
   void decLock(LockTreeNode root, List<String> path) {
-    DefaultLockManager.visit(root, path, decLock);
+    DefaultEmbeddedLockManager.visit(root, path, decLock);
   }
   
   boolean lock(LockManager lm, Session session, List<String> path, LockScope scope) {

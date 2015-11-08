@@ -22,7 +22,7 @@ package org.avidj.zuul.rs;
 
 import static com.jayway.restassured.module.mockmvc.RestAssuredMockMvc.*;
 
-import org.avidj.zuul.core.DefaultLockManager;
+import org.avidj.zuul.core.DefaultEmbeddedLockManager;
 import org.junit.Test;
 import org.springframework.http.HttpStatus;
 
@@ -56,7 +56,7 @@ public class ZuulTest {
 
   private static Zuul createZuul() {
     Zuul zuul = new Zuul();
-    zuul.setLockManager(new DefaultLockManager());
+    zuul.setLockManager(new DefaultEmbeddedLockManager());
     return zuul;
   }
 }

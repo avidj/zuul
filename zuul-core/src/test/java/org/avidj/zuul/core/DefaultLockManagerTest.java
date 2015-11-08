@@ -20,10 +20,10 @@ package org.avidj.zuul.core;
  * #L%
  */
 
-public class DefaultLockManagerTest extends LockManagerTest {
+public class DefaultLockManagerTest extends LockManagerInternalTest {
 
   @Override
-  protected LockManager lockManager() {
-    return new DefaultLockManager();
+  protected EmbeddedLockManager lockManager() {
+    return new DefaultEmbeddedLockManager();
   }
 }
