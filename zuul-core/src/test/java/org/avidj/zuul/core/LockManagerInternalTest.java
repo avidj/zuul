@@ -357,7 +357,9 @@ public abstract class LockManagerInternalTest {
 
   @Test
   public void testWReWMultRel() {
-    boolean success = lm.writeLock("1", key(1), LockScope.SHALLOW);
+    boolean success;
+    
+    success = lm.writeLock("1", key(1), LockScope.SHALLOW);
     assertThat(success, is(true));
     assertThat(lm.getLocks("1"), is(equalTo(ImmutableSet.of(
         newLock("1", key(1), LockType.WRITE, LockScope.SHALLOW)))));
@@ -385,7 +387,9 @@ public abstract class LockManagerInternalTest {
 
   @Test
   public void testRReRMultRel() {
-    boolean success = lm.readLock("1", key(1), LockScope.SHALLOW);
+    boolean success;
+    
+    success = lm.readLock("1", key(1), LockScope.SHALLOW);
     assertThat(success, is(true));
     assertThat(lm.getLocks("1"), is(equalTo(ImmutableSet.of(
         newLock("1", key(1), LockType.READ, LockScope.SHALLOW)))));
