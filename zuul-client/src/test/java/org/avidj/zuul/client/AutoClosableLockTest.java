@@ -397,8 +397,10 @@ public class AutoClosableLockTest {
             ImmutableSet.of(newLock(SESSION_1, key(1), LockType.WRITE, LockScope.SHALLOW)))));
       }
       assertThat(lock1.isReadLocked(), is(true));
+      // I think it's not safe to downgrade the lock here. It could have been upgraded through a
+      // different context.
       assertThat(lm1.getLocks(), is(equalTo(
-          ImmutableSet.of(newLock(SESSION_1, key(1), LockType.READ, LockScope.SHALLOW)))));
+          ImmutableSet.of(newLock(SESSION_1, key(1), LockType.WRITE, LockScope.SHALLOW)))));
     }
     assertThat(lm1.getLocks(), is(empty()));
   }

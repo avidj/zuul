@@ -87,17 +87,18 @@ public class AutoCloseableLock implements AutoCloseable {
 
   public AutoCloseableLock readLock() {
     synchronized ( this ) {
+      boolean success;
+      LockOp op = null;
       if ( this.isWriteLocked() ) {
-        LockOp op = LockOp.NO_OP;
+        success = lockManager.writeLock(this.session, this.path, this.scope);
+        op = LockOp.WRITE;
+      } else {
+        success = lockManager.readLock(this.session, this.path, this.scope);
+        op = LockOp.READ;
+      }
+      if ( success ) {
         op.onAcquire(this);
         locks.push(op);
-      } else {
-        boolean success = lockManager.readLock(this.session, this.path, this.scope);
-        if ( success ) {
-          LockOp op = LockOp.READ;
-          op.onAcquire(this);
-          locks.push(op);
-        }
       }
     }
     return this;
