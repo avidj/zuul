@@ -22,7 +22,11 @@ package org.avidj.zuul.core;
 
 import java.util.TimerTask;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 final class SessionTimeoutTask extends TimerTask {
+  private static final Logger LOG = LoggerFactory.getLogger(SessionTimeoutTask.class);
   private final LockManager lm;
   private final Session session;
 
@@ -33,6 +37,7 @@ final class SessionTimeoutTask extends TimerTask {
 
   @Override
   public void run() {
+    LOG.info("RELEASE BY TIMEOUT: " + session.id);
     lm.release(session.id);
   }
 }

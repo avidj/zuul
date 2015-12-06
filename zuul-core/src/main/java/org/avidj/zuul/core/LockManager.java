@@ -2,6 +2,7 @@ package org.avidj.zuul.core;
 
 import java.util.Collection;
 import java.util.List;
+import java.util.Set;
 
 /*
  * #%L
@@ -47,7 +48,7 @@ public interface LockManager {
    * @param session the session to query
    * @return the set of all locks held by the given session
    */
-  public Collection<Lock> getLocks(String session);
+  public Set<Lock> getLocks(String session);
 
   /**
    * Obtain a read lock on the given {@code path} for the given {@code session}. As locks are 

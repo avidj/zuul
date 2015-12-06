@@ -27,13 +27,13 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 
-public final class Lock {
+public class Lock {
   private final int hashCode;
-  final String session;
-  final List<String> key;
-  final LockType type;
-  final LockScope scope;
-  int count;
+  public String session;
+  public List<String> key;
+  public LockType type;
+  public LockScope scope;
+  public int count;
   
   public static Lock newLock(String session, List<String> path, LockType type, LockScope scope) {
     return new Lock(session, path, type, scope, 1);

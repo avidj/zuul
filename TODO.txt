@@ -1,3 +1,28 @@
+* Locks are not reentrant, count is never incremented (according to rest result)
+* proper REST interface
+
+* PUT /a/b/c?session-id # locks /a/b/c for the given session
+* PUT /?session-id&scope=deep # deep locks the whole tree
+* GET /a/b/c returns the lock info for /a/b/c or File not found
+* GET /a/b/c?scope=deep returns all locks below /a/b/c as a tree rooted at /a/b/c (including the prefix in each path
+* GET /a/b/c?session-id&scope=deep # returns all locks below /a/b/c owned by the given session
+* DEL /a/b?scope=deep?session-id # releases all locks held by session-id below /a/b
+
+lock type (upgrade)
+lock scope (upgrade)
+
+LockInfo
+  path
+  scope
+  type
+  count
+  session
+
+Better would be nested lock info
+ 
+
+
+* mvn jetty:run listens on 8080 although 8090 is configured 
 * (client) library with AutoCloseable locks hiding the service
 * client to wrap the RESTful service (implements LockManager)
 * test REST client with core lock manager and AutoCloseable lock manager tests
@@ -9,3 +34,4 @@
 * test distributed Zuul with AutoCloseable lock manager tests
 * let nodes communicate in a binary format with each other (binary client and server interfaces)
 * compress communication between nodes by computing huffman codes for common prefixes
+

@@ -20,11 +20,13 @@ package org.avidj.zuul.rs;
  * #L%
  */
 
-
+import org.avidj.util.Strings;
 import org.avidj.zuul.core.Lock;
 import org.avidj.zuul.core.LockManager;
 import org.avidj.zuul.core.LockScope;
 import org.avidj.zuul.core.LockType;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
@@ -41,15 +43,16 @@ import org.springframework.web.util.UriComponents;
 import org.springframework.web.util.UriComponentsBuilder;
 
 import java.util.Arrays;
-import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
+import java.util.Set;
 
 import javax.servlet.http.HttpServletRequest;
 
 @Controller
 @RequestMapping
-public class Zuul implements LockManager {
+public class Zuul {
+  private static final Logger LOG = LoggerFactory.getLogger(Zuul.class);
   private static final String ACK = "ack";
   
   @Autowired
@@ -67,6 +70,18 @@ public class Zuul implements LockManager {
   public String ping(@PathVariable("id") String id) {
     lm.heartbeat(id);
     return ACK;
+  }
+  
+  @RequestMapping(value = "/s/{id}/**", method = RequestMethod.GET)
+  public @ResponseBody Set<Lock> info(
+      @PathVariable("id") String session,
+      HttpServletRequest request,
+      UriComponentsBuilder uriBuilder) {
+    final List<String> path = getLockPath(request, session); 
+   
+    Set<Lock> locks = lm.getLocks(session);
+    LOG.info("query info for session {}: {}", session, Strings.join(locks));
+    return locks;
   }
 
   /**
@@ -91,8 +106,7 @@ public class Zuul implements LockManager {
       @RequestParam(value = "s", defaultValue = "s") String scope,
       HttpServletRequest request,
       UriComponentsBuilder uriBuilder) {
-    final String lockPathParam = getLockPathParam(request, 4 + session.length()); 
-    final List<String> path = getLockPath(lockPathParam);
+    final List<String> path = getLockPath(request, session); 
     final LockType lockType = getLockType(type);
     final LockScope lockScope = getLockScope(scope);
     
@@ -100,7 +114,7 @@ public class Zuul implements LockManager {
     HttpStatus httpStatus = created ? HttpStatus.CREATED : HttpStatus.FORBIDDEN;
     
     UriComponents uriComponents = 
-        uriBuilder.path("/s/{id}/{lockPath}").buildAndExpand(session, lockPathParam);
+        uriBuilder.path("/s/{id}/{lockPath}").buildAndExpand(session, Strings.join("/", path));
     HttpHeaders headers = new HttpHeaders();
     headers.setLocation(uriComponents.toUri());
     return new ResponseEntity<String>(headers, httpStatus);
@@ -118,78 +132,16 @@ public class Zuul implements LockManager {
       @PathVariable("id") String session, 
       HttpServletRequest request,
       UriComponentsBuilder uriBuilder) {
-    final String lockPathParam = getLockPathParam(request, 4 + session.length()); 
-    final List<String> path = getLockPath(lockPathParam);
+    final List<String> path = getLockPath(request, session); 
     
     final boolean deleted = lm.release(session, path);
     HttpStatus httpStatus = deleted ? HttpStatus.NO_CONTENT : HttpStatus.FORBIDDEN;
     
     UriComponents uriComponents = 
-        uriBuilder.path("/s/{id}/{lockPath}").buildAndExpand(session, lockPathParam);
+        uriBuilder.path("/s/{id}/{lockPath}").buildAndExpand(session, Strings.join("/", path));
     HttpHeaders headers = new HttpHeaders();
     headers.setLocation(uriComponents.toUri());
     return new ResponseEntity<String>(headers, httpStatus);
-  }
-
-  @Override
-  public void setSessionTimeout(long timeoutMillis) {
-    // TODO Auto-generated method stub
-    
-  }
-
-  @Override
-  public Collection<Lock> getLocks(String session) {
-    // TODO Auto-generated method stub
-    return null;
-  }
-
-  @Override
-  public boolean readLock(String session, List<String> path, LockScope scope) {
-    // TODO Auto-generated method stub
-    return false;
-  }
-
-  @Override
-  public boolean writeLock(String session, List<String> path, LockScope scope) {
-    // TODO Auto-generated method stub
-    return false;
-  }
-
-  @Override
-  public boolean lock(String sessionId, List<String> path, LockType type, LockScope scope) {
-    // TODO Auto-generated method stub
-    return false;
-  }
-
-  @Override
-  public boolean multiLock(String sessionId, List<List<String>> paths, LockType type,
-      LockScope scope) {
-    // TODO Auto-generated method stub
-    return false;
-  }
-
-  @Override
-  public boolean release(String session, List<String> path) throws IllegalStateException {
-    // TODO Auto-generated method stub
-    return false;
-  }
-
-  @Override
-  public int release(String session, Collection<List<String>> paths) {
-    // TODO Auto-generated method stub
-    return 0;
-  }
-
-  @Override
-  public void release(String session) {
-    // TODO Auto-generated method stub
-    
-  }
-
-  @Override
-  public void heartbeat(String session) {
-    // TODO Auto-generated method stub
-    
   }
 
   private static LockScope getLockScope(String scope) {
@@ -200,56 +152,21 @@ public class Zuul implements LockManager {
     return ( "r".equals(type) ) ? LockType.READ : LockType.WRITE;
   }
 
-  private static String getLockPathParam(HttpServletRequest request, int prefixLength) {
+  private static List<String> getLockPath(HttpServletRequest request, String session) {
     String matchedPath = 
         (String)request.getAttribute(HandlerMapping.PATH_WITHIN_HANDLER_MAPPING_ATTRIBUTE);
-    final String lockPath = matchedPath.substring(prefixLength);
-    return lockPath;
+    final int prefixLength = "/s/".length() + session.length();
+    String lockPath = matchedPath.substring(prefixLength);
+    if ( lockPath.startsWith("/") ) {
+      lockPath = lockPath.substring(1);
+    }
+    return toLockPath(lockPath);
   }
 
-  private static List<String> getLockPath(String lockPath) {
+  private static List<String> toLockPath(String lockPath) {
     if ( lockPath.isEmpty() ) { 
       return Collections.emptyList();
     }
     return Collections.unmodifiableList(Arrays.asList(lockPath.split("/")));
   }
-
-  //  @RequestMapping(value = "/s/{id}/{path}", method = RequestMethod.GET)
-//  public String getLocks(
-//      @PathVariable("id") String session, 
-//      @PathVariable("path") String pathParam) {
-//    final List<String> path = Collections.unmodifiableList(Arrays.asList(pathParam.split("/")));
-//    return Boolean.toString(lm.release(session, path));
-//  }
-//
-//  /**
-//   * Select information on all locks held by the given {@code session}.
-//   * @param session the session to retrieve lock information about
-//   * @return all locks held by the session
-//   */
-//  @RequestMapping(value = "/s/{id}", method = RequestMethod.GET)
-//  public Session getSession(@PathVariable("id") String session) {
-////    // TODO: The result should be represented as a collections of lock trees rooted under 
-////    // session
-////    return lm.getSession(id);
-//    return null;
-//  }
-//
-//  /**
-//   * Select information on the locks on the given node and the subtree beneath it. This will 
-//   * <em>not</em> include information on deep ancestor locks.
-//   * 
-//   * @param pathParam the lock path
-//   * @return lock information on the node and all nested nodes
-//   */
-//  @RequestMapping(value = "/l/{path:.*}", method = RequestMethod.GET)
-//  public LockPathComponent getLockTreeNode(@PathVariable("path") String pathParam) {
-//    // TODO: The result should be single lock tree rooted under id
-//    final List<String> path = Collections.unmodifiableList(Arrays.asList(pathParam.split("/")));
-//    LockTreeNode node = lm.getRoot().getChild(pathParam); // Find a session object
-//    if ( node == null ) {
-//      return null;
-//    }
-//    return new LockPathComponent(lm, node);
-//  }
 }

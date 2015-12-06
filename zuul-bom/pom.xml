@@ -15,22 +15,32 @@
   </properties>
 
   <dependencyManagement>
-  <dependencies>
-    <dependency>
-      <groupId>org.avidj</groupId>
-      <artifactId>zuul-core</artifactId>
-      <version>${project.version}</version>
-    </dependency>
-    <dependency>
-      <groupId>org.avidj</groupId>
-      <artifactId>zuul-rs</artifactId>
-      <version>${project.version}</version>
-    </dependency>
-    <dependency>
-      <groupId>org.avidj</groupId>
-      <artifactId>zuul-client</artifactId>
-      <version>${project.version}</version>
-    </dependency>
-  </dependencies>
+	  <dependencies>
+	    <dependency>
+	      <groupId>org.avidj</groupId>
+	      <artifactId>zuul-core</artifactId>
+	      <version>${project.version}</version>
+	    </dependency>
+	    <dependency>
+	      <groupId>org.avidj</groupId>
+	      <artifactId>zuul-rs</artifactId>
+	      <version>${project.version}</version>
+	    </dependency>
+	    <dependency>
+	      <groupId>org.avidj</groupId>
+	      <artifactId>zuul-client</artifactId>
+	      <version>${project.version}</version>
+	    </dependency>
+			<dependency>
+			  <groupId>com.fasterxml.jackson.core</groupId>
+			  <artifactId>jackson-core</artifactId>
+			  <version>2.6.3</version>
+			</dependency>
+			<dependency>
+			  <groupId>com.fasterxml.jackson.core</groupId>
+			  <artifactId>jackson-databind</artifactId>
+			  <version>2.6.3</version>
+			</dependency>
+    </dependencies>
   </dependencyManagement>
 </project>
