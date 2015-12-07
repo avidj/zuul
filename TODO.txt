@@ -1,4 +1,10 @@
+* implement remaining test methods 
 * proper REST interface
+* REST client 
++ integration test with existing LockManager test suite
++ integration test with existing AutoCloseableLockManager test suite
+
+* proper downscope and downgrade of AutoCloseable locks   
 
 * PUT /a/b/c?session-id # locks /a/b/c for the given session
 * PUT /?session-id&scope=deep # deep locks the whole tree

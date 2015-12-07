@@ -332,39 +332,33 @@ public class AutoClosableLockTest {
     assertThat(lm1.getLocks(), is(empty()));
   }
 
-//  @Test
-//  public void testWWRelRel() {
-//    boolean success = lm.writeLock("1", key(1), LockScope.SHALLOW);
-//    assertThat(success, is(true));
-//    assertThat(lm.getLocks("1"), is(equalTo(ImmutableSet.of(
-//        newLock("1", key(1), LockType.WRITE, LockScope.SHALLOW)))));
-//
-//    success = lm.writeLock("1", key(1), LockScope.SHALLOW);
-//    assertThat(success, is(true));
-//    assertThat(lm.getLocks("1"), is(equalTo(ImmutableSet.of(
-//        newLock("1", key(1), LockType.WRITE, LockScope.SHALLOW)))));
-//
-//    success = lm.release("1", key(1));
-//    assertThat(success, is(true));
-//    assertThat(lm.getLocks("1"), is(equalTo(ImmutableSet.of(
-//        newLock("1", key(1), LockType.WRITE, LockScope.SHALLOW)))));
-//
-//    success = lm.release("1", key(1));
-//    assertThat(success, is(true));
-//    assertThat(lm.getLocks("1"), is(equalTo(Collections.emptySet())));
-//  }
-//
-//  @Test
-//  public void testRRel() {
-//    boolean success = lm.readLock("1", key(1), LockScope.SHALLOW);
-//    assertThat(success, is(true));
-//    assertThat(lm.getLocks("1"), is(equalTo(ImmutableSet.of(
-//        newLock("1", key(1), LockType.READ, LockScope.SHALLOW)))));
-//    
-//    success = lm.release("1", key(1));
-//    assertThat(success, is(true));
-//    assertThat(lm.getLocks("1"), is(equalTo(Collections.emptySet())));
-//  }
+  @Test
+  public void testWWRelRel() {
+    try ( AutoCloseableLock lock1 = lm1.writeLock(key(1), LockScope.SHALLOW) ) {
+      assertThat(lock1.isWriteLocked(), is(true));
+      assertThat(lm1.getLocks(), is(equalTo(
+          ImmutableSet.of(newLock(SESSION_1, key(1), LockType.WRITE, LockScope.SHALLOW)))));
+      try ( AutoCloseableLock lock2 = lock1.writeLock() ) {
+        assertThat(lock2.isWriteLocked(), is(true));
+        assertThat(lm1.getLocks(), is(equalTo(
+            ImmutableSet.of(newLock(SESSION_1, key(1), LockType.WRITE, LockScope.SHALLOW)))));
+      }
+      assertThat(lock1.isWriteLocked(), is(true));
+      assertThat(lm1.getLocks(), is(equalTo(
+          ImmutableSet.of(newLock(SESSION_1, key(1), LockType.WRITE, LockScope.SHALLOW)))));
+    }
+    assertThat(lm1.getLocks(), is(empty()));
+  }
+
+  @Test
+  public void testRRel() {
+    try ( AutoCloseableLock lock1 = lm1.readLock(key(1), LockScope.SHALLOW) ) {
+      assertThat(lock1.isReadLocked(), is(true));
+      assertThat(lm1.getLocks(), is(equalTo(
+          ImmutableSet.of(newLock(SESSION_1, key(1), LockType.READ, LockScope.SHALLOW)))));
+    }
+    assertThat(lm1.getLocks(), is(empty()));
+  }
 
   @Test
   public void testRRRelRel() {
@@ -384,7 +378,6 @@ public class AutoClosableLockTest {
     assertThat(lm1.getLocks(), is(empty()));
   }
 
-  // TODO: probably, this is how it should behave, how about the DefaultLockManagerTest?
   @Test
   public void testRWRelRel() {
     try ( AutoCloseableLock lock1 = lm1.readLock(key(1), LockScope.SHALLOW) ) {
@@ -398,7 +391,7 @@ public class AutoClosableLockTest {
       }
       assertThat(lock1.isReadLocked(), is(true));
       // I think it's not safe to downgrade the lock here. It could have been upgraded through a
-      // different context.
+      // different context, hence assert it's still write locked.
       assertThat(lm1.getLocks(), is(equalTo(
           ImmutableSet.of(newLock(SESSION_1, key(1), LockType.WRITE, LockScope.SHALLOW)))));
     }
@@ -442,34 +435,31 @@ public class AutoClosableLockTest {
     assertThat(lm1.getLocks(), is(empty()));
   }
 
-//  @Test
-//  public void testWReWMultRel() {
-//    boolean success = lm.writeLock("1", key(1), LockScope.SHALLOW);
-//    assertThat(success, is(true));
-//    assertThat(lm.getLocks("1"), is(equalTo(ImmutableSet.of(
-//        newLock("1", key(1), LockType.WRITE, LockScope.SHALLOW)))));
-//
-//    success = lm.writeLock("1", key(1), LockScope.SHALLOW);
-//    assertThat(success, is(true));
-//    assertThat(lm.getLocks("1"), is(equalTo(ImmutableSet.of(
-//        newLock("1", key(1), LockType.WRITE, LockScope.SHALLOW)))));
-//
-//    success = lm.writeLock("1", key(1, 2, 3), LockScope.DEEP);
-//    assertThat(success, is(true));
-//    assertThat(lm.getLocks("1"), is(equalTo(ImmutableSet.of(
-//        newLock("1", key(1), LockType.WRITE, LockScope.SHALLOW),
-//        newLock("1", key(1, 2, 3), LockType.WRITE, LockScope.SHALLOW)))));
-//
-//    int released = lm.release("1", Arrays.asList(key(1), key(1, 2, 3)));
-//    assertThat(released, is(2));
-//    assertThat(lm.getLocks("1"), is(equalTo(ImmutableSet.of(
-//        newLock("1", key(1), LockType.WRITE, LockScope.SHALLOW)))));
-//
-//    released = lm.release("1", Arrays.asList(key(1)));
-//    assertThat(released, is(1));
-//    assertThat(lm.getLocks("1"), is(equalTo(Collections.emptySet())));
-//  }
-//
+  @Test
+  public void testWReWMultRel() {
+    try ( AutoCloseableLock lock1 = lm1.writeLock(key(1), LockScope.SHALLOW) ) {
+      assertThat(lock1.isWriteLocked(), is(true));
+      assertThat(lm1.getLocks(), is(equalTo(ImmutableSet.of(
+          newLock(SESSION_1, key(1), LockType.WRITE, LockScope.SHALLOW)))));
+
+      try ( AutoCloseableLock lock1P1 = lock1.upScope() ) {
+        assertThat(lm1.getLocks(), is(equalTo(ImmutableSet.of(
+            newLock(SESSION_1, key(1), LockType.WRITE, LockScope.DEEP)))));
+        
+        try ( AutoCloseableLock lock1P2 = lm1.writeLock(key(1, 2, 3), LockScope.DEEP) ) {
+          assertThat(lock1P2.isWriteLocked(), is(true));
+          assertThat(lm1.getLocks(), is(equalTo(ImmutableSet.of(
+              newLock(SESSION_1, key(1), LockType.WRITE, LockScope.DEEP),
+              newLock(SESSION_1, key(1, 2, 3), LockType.WRITE, LockScope.SHALLOW)))));
+        }
+      }
+      assertThat(lock1.isWriteLocked(), is(true));
+      assertThat(lm1.getLocks(), is(equalTo(ImmutableSet.of(
+          newLock(SESSION_1, key(1), LockType.WRITE, LockScope.SHALLOW)))));
+    }
+    assertThat(lm1.getLocks(), is(empty()));
+  }
+
 //  @Test
 //  public void testRReRMultRel() {
 //    boolean success = lm.readLock("1", key(1), LockScope.SHALLOW);

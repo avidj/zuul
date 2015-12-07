@@ -18,7 +18,7 @@
 		<module>zuul-core</module>
 		<module>zuul-rs</module>
 		<module>zuul-client</module>
-    <module>zuul-paxos</module>
+<!--     <module>zuul-paxos</module> -->
 	</modules>
 
 	<properties>

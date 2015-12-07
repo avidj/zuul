@@ -41,7 +41,7 @@ public class AutoCloseableLock implements AutoCloseable {
   private enum LockOp {
     READ(LockType.READ, l -> l.lockManager.release(l.session, l.path),   l -> l.r++, l -> l.r--),
     WRITE(LockType.WRITE, l -> l.lockManager.release(l.session, l.path), l -> l.w++, l -> l.w--),
-    UPSCOPE(null, l -> true, l -> { }, l -> { l.scope = LockScope.SHALLOW; }),
+    UPSCOPE(null, l -> { l.downScope(); return true; }, l -> { }, l -> { l.scope = LockScope.SHALLOW; }),
     NO_OP(null, l -> true, l -> { }, l -> { });
     
     private final LockType lockType;
@@ -146,6 +146,10 @@ public class AutoCloseableLock implements AutoCloseable {
 
   public boolean isDeepLocked() {
     return scope == LockScope.DEEP;
+  }
+  
+  private AutoCloseableLock downScope() {
+    throw new UnsupportedOperationException();
   }
 
   public AutoCloseableLock upScope() {
