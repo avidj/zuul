@@ -63,13 +63,17 @@ public class DefaultEmbeddedLockManager implements EmbeddedLockManager {
       session = new Session(this, id);
       sessions.put(id, session);
     }
-    sessionTimer.schedule(session.newTimeoutTask(), sessionTimeout);
+    synchronized ( this ) {
+      sessionTimer.schedule(session.newTimeoutTask(), sessionTimeout);
+    }
     return session;
   }
 
   @Override
   public void setSessionTimeout(long sessionTimeout) {
-    this.sessionTimeout = sessionTimeout;
+    synchronized ( this ) {
+      this.sessionTimeout = sessionTimeout;
+    }
   }
 
   @Override

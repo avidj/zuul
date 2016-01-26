@@ -30,10 +30,20 @@ import org.avidj.zuul.core.LockType;
 import java.util.Collection;
 import java.util.List;
 
+/**
+ * A decorator around implementations of {@link org.avidj.zuul.core.LockManager} that creates 
+ * autocloseable locks to be used in try-with-resources blocks. The backing lock manager could be
+ * an embedded or a remote lock manager.
+ */
 public class AutoCloseableLockManager {
   private final String session;
   private final LockManager lockManager;
 
+  /**
+   * Create a new AutoCloseableLockManager.
+   * @param session the session to create locks for
+   * @param lockManager the lock manager that manages the locks
+   */
   public AutoCloseableLockManager(String session, LockManager lockManager) {
     Preconditions.checkNotNull(session);
     Preconditions.checkNotNull(lockManager);
@@ -50,14 +60,16 @@ public class AutoCloseableLockManager {
   }
 
   public AutoCloseableLock lock(List<String> path, LockType lockType, LockScope scope) {
+    @SuppressWarnings("resource")
     AutoCloseableLock lock = new AutoCloseableLock(this.lockManager, this.session, path, scope);
     switch ( lockType ) {
-    case READ: 
-      return lock.readLock();
-    case WRITE: 
-      return lock.writeLock();
+      case READ: 
+        return lock.readLock();
+      case WRITE: 
+        return lock.writeLock();
+      default:
+        throw new IllegalArgumentException("Unsupported lock type: " + lockType);
     }
-    throw new IllegalArgumentException("Unknown lock type " + lockType);
   }
 
   public AutoCloseableLock readLock(List<String> path) {

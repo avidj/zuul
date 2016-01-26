@@ -23,26 +23,50 @@ package org.avidj.zuul.client;
 import org.avidj.zuul.core.LockManager;
 import org.avidj.zuul.core.LockScope;
 import org.avidj.zuul.core.LockType;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Stack;
 
+/**
+ * A type of lock that can be used in try-with-resources blocks. These locks are created using an
+ * {@link org.avidj.zuul.client.AutoCloseableLockManager} which may be backed by an embedded or a
+ * remote lock manager implementation.
+ */
 public class AutoCloseableLock implements AutoCloseable {
-  
+  private static final Logger LOG = LoggerFactory.getLogger(AutoCloseableLock.class);
   private final LockManager lockManager;
   private final String session;
   private final List<String> path;
   private LockScope scope;
-  private int r;
-  private int w;
+  private int read;
+  private int write;
   private final Stack<LockOp> locks = new Stack<>();
   
   private enum LockOp {
-    READ(LockType.READ, l -> l.lockManager.release(l.session, l.path),   l -> l.r++, l -> l.r--),
-    WRITE(LockType.WRITE, l -> l.lockManager.release(l.session, l.path), l -> l.w++, l -> l.w--),
-    UPSCOPE(null, l -> { l.downScope(); return true; }, l -> { }, l -> { l.scope = LockScope.SHALLOW; }),
-    NO_OP(null, l -> true, l -> { }, l -> { });
+    READ(LockType.READ, 
+        l -> l.lockManager.release(l.session, l.path),   
+        l -> l.read++, 
+        l -> l.read--),
+    WRITE(LockType.WRITE, 
+        l -> l.lockManager.release(l.session, l.path), 
+        l -> l.write++, 
+        l -> l.write--),
+    UPSCOPE(null, 
+        l -> {
+          // TODO: this increments the lock count and therefore does not yet work
+          l.lockManager.lock(l.session, l.path, l.type(), LockScope.SHALLOW);
+          return true;
+        },
+        l -> { }, 
+        l -> l.scope = LockScope.SHALLOW ),
+    NO_OP(null, 
+        l -> true, 
+        l -> { }, 
+        l -> { });
     
     private final LockType lockType;
     private final Revert revert;
@@ -56,40 +80,55 @@ public class AutoCloseableLock implements AutoCloseable {
       this.onRelease = onRelease;
     }
    
-    void onAcquire(AutoCloseableLock l) {
-      onAcquire.onSuccess(l);
+    void onAcquire(AutoCloseableLock lock) {
+      onAcquire.onSuccess(lock);
     }
 
-    void onRelease(AutoCloseableLock l) {
-      onRelease.onSuccess(l);
+    void onRelease(AutoCloseableLock lock) {
+      onRelease.onSuccess(lock);
     }
 
-    boolean revert(AutoCloseableLock l) {
-      return revert.revert(l);
+    boolean revert(AutoCloseableLock lock) {
+      return revert.revert(lock);
     }
   }
   
   private interface Revert {
-    boolean revert(AutoCloseableLock l);
+    boolean revert(AutoCloseableLock lock);
   }
   
   @FunctionalInterface
   private interface OnSuccess {
-    void onSuccess(AutoCloseableLock l);
+    void onSuccess(AutoCloseableLock lock);
   }
 
   AutoCloseableLock(LockManager lockManager, String session, List<String> path, LockScope scope) {
     this.lockManager = lockManager;
     this.session = session;
-    this.path = new ArrayList<>(path);
+    this.path = Collections.unmodifiableList(new ArrayList<>(path));
     this.scope = scope;
   }
+  
+  /**
+   * Returns the path represented by this lock object. This path is locked or released by the 
+   * operations in this class.
+   * @return the path represented by this lock
+   */
+  public List<String> path() {
+    return path;
+  }
 
+  /**
+   * Acquire a shared / read lock on the resource described by this lock's path.
+   * This operation blocks until it succeeds.
+   * @return this
+   */
   public AutoCloseableLock readLock() {
     synchronized ( this ) {
       boolean success;
       LockOp op = null;
       if ( this.isWriteLocked() ) {
+        // if this is already write locked a read lock would effectively downgrade the lock
         success = lockManager.writeLock(this.session, this.path, this.scope);
         op = LockOp.WRITE;
       } else {
@@ -99,11 +138,18 @@ public class AutoCloseableLock implements AutoCloseable {
       if ( success ) {
         op.onAcquire(this);
         locks.push(op);
+      } else {
+        LOG.warn("Create blocking lock operations so that autoclosable locks can be used.");
       }
     }
     return this;
   }
 
+  /**
+   * Acquire an exclusive / write lock on the resource described by this lock's path.
+   * This operation blocks until it succeeds.
+   * @return this
+   */
   public AutoCloseableLock writeLock() {
     synchronized ( this ) {
       boolean success = lockManager.writeLock(this.session, this.path, this.scope);
@@ -111,11 +157,19 @@ public class AutoCloseableLock implements AutoCloseable {
         LockOp op = LockOp.WRITE;
         op.onAcquire(this);
         locks.push(op);
+      } else {
+        LOG.warn("Create blocking lock operations so that autoclosable locks can be used.");
       }
     }
     return this;
   }
 
+  /**
+   * Releases this lock. Recall that locks are reentrant, so to actually release a lock this method
+   * has to be called as often as shared or exclusive locks on this path have been obtained.
+   * @return this
+   * @throws IllegalStateException if the lock is not being held
+   */
   public AutoCloseableLock release() throws IllegalStateException {
     if ( locks.isEmpty() ) {
       return this;
@@ -126,6 +180,8 @@ public class AutoCloseableLock implements AutoCloseable {
       if ( success ) {
         lockOp.onRelease(this);
         locks.pop();
+      } else {
+        LOG.warn("Create blocking lock operations so that autoclosable locks can be used.");
       }
     }
     return this;
@@ -141,17 +197,18 @@ public class AutoCloseableLock implements AutoCloseable {
   }
 
   public boolean isWriteLocked() {
-    return w > 0;
+    return write > 0;
   }
 
   public boolean isDeepLocked() {
     return scope == LockScope.DEEP;
   }
   
-  private AutoCloseableLock downScope() {
-    throw new UnsupportedOperationException();
-  }
-
+  /**
+   * Extend the scope of this lock to a deep lock (if it is not yet). 
+   * This operation blocks until it succeeds.
+   * @return this
+   */
   public AutoCloseableLock upScope() {
     final LockType type = type();
     if ( type == null ) { 
@@ -167,15 +224,16 @@ public class AutoCloseableLock implements AutoCloseable {
         locks.push(op);
       } else {
         locks.push(LockOp.NO_OP);
+        LOG.warn("Create blocking lock operations so that autoclosable locks can be used.");
       }
     }
     return this;
   }
 
   private LockType type() {
-    if ( w > 0 ) {
+    if ( write > 0 ) {
       return LockType.WRITE;
-    } else if ( r > 0 ) {
+    } else if ( read > 0 ) {
       return LockType.READ;
     }
     return null;

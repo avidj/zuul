@@ -1,10 +1,18 @@
-* implement remaining test methods 
+* implement remaining test methods
+
+DefaultLockManager
+* provide blocking operations of all lock operations.
+
+AutoCloseableLock
+* proper downscope and downgrade of AutoCloseable locks   
+* shall always block on all operations if necessary. Otherwise, try-with-resources lock blocks will be entered illegally.
+* new autocloseable lock objects shall be initialized with the actual state of the lock path 
+
+REST
 * proper REST interface
 * REST client 
 + integration test with existing LockManager test suite
 + integration test with existing AutoCloseableLockManager test suite
-
-* proper downscope and downgrade of AutoCloseable locks   
 
 * PUT /a/b/c?session-id # locks /a/b/c for the given session
 * PUT /?session-id&scope=deep # deep locks the whole tree
@@ -16,7 +24,7 @@
 lock type (upgrade)
 lock scope (upgrade)
 
-LockInfo
+LockInfo, relation to inode?
   path
   scope
   type
