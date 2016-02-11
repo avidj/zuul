@@ -1,10 +1,12 @@
 * implement remaining test methods
 
 DefaultLockManager
-* provide blocking operations of all lock operations.
+* provide blocking versions of all lock operations.
+* provide non-blocking (timeout) versions of all lock operations
 
 AutoCloseableLock
-* proper downscope and downgrade of AutoCloseable locks   
+* proper downscope and downgrade of AutoCloseable locks 
+** consider owners of nested locks  
 * shall always block on all operations if necessary. Otherwise, try-with-resources lock blocks will be entered illegally.
 * new autocloseable lock objects shall be initialized with the actual state of the lock path 
 

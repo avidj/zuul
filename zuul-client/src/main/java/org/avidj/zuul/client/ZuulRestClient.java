@@ -153,6 +153,16 @@ public class ZuulRestClient implements LockManager {
   }
 
   @Override
+  public boolean upScope(String session, List<String> path, LockType type) {
+    throw new UnsupportedOperationException("not yet implemented");
+  }
+
+  @Override
+  public boolean downScope(String session, List<String> path, LockType type, LockScope shallow) {
+    throw new UnsupportedOperationException("not yet implemented");
+  }
+
+  @Override
   public void heartbeat(String session) {
     throw new UnsupportedOperationException("not yet implemented");
   }

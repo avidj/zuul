@@ -459,6 +459,8 @@ public class AutoClosableLockTest {
     }
     assertThat(lm1.getLocks(), is(empty()));
   }
+  
+  // TODO: must allow lock upscoping if all nested locks belong to the same session 
 
 //  @Test
 //  public void testRReRMultRel() {

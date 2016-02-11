@@ -65,6 +65,10 @@ public class Lock {
     return new Lock(session, key, LockType.READ, scope, count + 1);
   }
 
+  Lock scope(LockScope scope) {
+    return new Lock(session, key, type, scope, count);
+  }
+
   Lock deepLock() {
     if ( scope == LockScope.DEEP ) {
       return this;

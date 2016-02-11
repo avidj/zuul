@@ -138,4 +138,18 @@ public interface LockManager {
    * @param session the session to keep alive
    */
   public void heartbeat(String session);
+
+  /**
+   * Extend the scope of the given lock to a deep lock (if it is not yet). 
+   * This operation blocks until it succeeds.
+   * @return {@code true}, iff the scope was shallow and now is deep
+   */
+  public boolean upScope(String session, List<String> path, LockType type);
+
+  /**
+   * Decrease the scope of the given lock to a shallow lock (if it is not yet). 
+   * This operation blocks until it succeeds.
+   * @return {@code true}, iff the scope was deep and now is shallow
+   */
+  public boolean downScope(String session, List<String> path, LockType type, LockScope shallow);
 }

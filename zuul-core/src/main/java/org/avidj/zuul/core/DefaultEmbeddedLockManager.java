@@ -279,11 +279,54 @@ public class DefaultEmbeddedLockManager implements EmbeddedLockManager {
     assert ( invariants(root, path) );
     return success;
   }
+  
+  @Override
+  public boolean upScope(String id, List<String> path, LockType type) {
+    return updateScope(id, path, type, LockScope.DEEP);
+  }
+
+  @Override
+  public boolean downScope(String id, List<String> path, LockType type, LockScope shallow) {
+    return updateScope(id, path, type, LockScope.SHALLOW);
+  }
+
+  public boolean updateScope(String id, List<String> path, LockType type, LockScope scope) {
+    final Session session = getSession(id);
+
+    // traverse path described by lock
+    LockTreeNode prev = null;
+    LockTreeNode current = root;
+
+    current.lock();
+    if ( deepLockedByOther(current, id, LockType.READ) ) {
+      throw new IllegalStateException("deep locked by other session");
+    }
+    
+    final int n = path.size();
+    int pos;
+    for ( pos = 0; pos < n; pos++ ) {
+      prev = current;
+      current = current.children.get(path.get(pos));
+      if ( current != null ) {
+        current.lock();
+        prev.unlock();
+        if ( deepLockedByOther(current, id, LockType.READ) ) {
+          throw new IllegalStateException("deep locked by other session");
+        }
+      } else {
+        throw new IllegalStateException("lock does not exist");
+      }
+    }
+    boolean success = setLockScope(current, session, path, scope);
+    current.unlock();
+    return success;
+  }
 
   private boolean setReadLock(
       LockTreeNode node, Session session, List<String> path, LockScope scope) {
     synchronized ( node ) {
-      if ( scope == LockScope.DEEP && node.exclusive > 0 ) { // TODO: what if current session has the deep locks?
+      // TODO: what if current session has the deep locks?
+      if ( scope == LockScope.DEEP && node.exclusive > 0 ) { 
         return false;
       }
     }
@@ -303,6 +346,24 @@ public class DefaultEmbeddedLockManager implements EmbeddedLockManager {
     final Lock newLock = ( existing != null ) 
         ? existing.readLock(scope) : newLock(session.id, path, LockType.READ, scope);
     node.addLock(newLock);
+    session.addLock(node);
+  
+    return true;
+  }
+
+  private boolean setLockScope(
+      LockTreeNode node, Session session, List<String> path, LockScope scope) {
+    final Lock existing = node.getLock(session.id);
+    assert ( existing != null );
+    // TODO: upscoping shall be allowed if all nested locks belong to this session 
+    if ( scope == existing.scope ||
+        ( scope == LockScope.DEEP && node.locksInSubtree() > 1 ) ) { 
+      return false; // there are nested locks preventing a deep lock
+    }
+   
+    // just update the lock scope
+    node.removeLock(existing);
+    node.addLock(existing.scope(scope));
     session.addLock(node);
   
     return true;

@@ -56,11 +56,7 @@ public class AutoCloseableLock implements AutoCloseable {
         l -> l.write++, 
         l -> l.write--),
     UPSCOPE(null, 
-        l -> {
-          // TODO: this increments the lock count and therefore does not yet work
-          l.lockManager.lock(l.session, l.path, l.type(), LockScope.SHALLOW);
-          return true;
-        },
+        l -> l.lockManager.downScope(l.session, l.path, l.type(), LockScope.SHALLOW),
         l -> { }, 
         l -> l.scope = LockScope.SHALLOW ),
     NO_OP(null, 
@@ -217,7 +213,7 @@ public class AutoCloseableLock implements AutoCloseable {
     if ( this.scope == LockScope.DEEP ) {
       locks.push(LockOp.NO_OP);
     } else {
-      if ( lockManager.lock(session, path, type, LockScope.DEEP) ) {
+      if ( lockManager.upScope(session, path, type) ) {
         this.scope = LockScope.DEEP;
         LockOp op = LockOp.UPSCOPE;
         op.onAcquire(this);
