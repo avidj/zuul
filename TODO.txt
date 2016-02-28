@@ -10,6 +10,10 @@ AutoCloseableLock
 * shall always block on all operations if necessary. Otherwise, try-with-resources lock blocks will be entered illegally.
 * new autocloseable lock objects shall be initialized with the actual state of the lock path 
 
+locks as inodes?
+--> FS?
+intention locks
+
 REST
 * proper REST interface
 * REST client 
