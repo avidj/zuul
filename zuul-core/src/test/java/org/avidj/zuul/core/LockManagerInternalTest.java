@@ -511,7 +511,7 @@ public abstract class LockManagerInternalTest {
         newLock("1", key(2), LockType.WRITE, LockScope.SHALLOW),
         newLock("1", key(1, 2, 3), LockType.WRITE, LockScope.SHALLOW)))));
     
-    Thread.sleep(20);
+    Thread.sleep(50);
     assertThat(lm.getLocks("1"), is(equalTo(Collections.emptySet())));
   }
 

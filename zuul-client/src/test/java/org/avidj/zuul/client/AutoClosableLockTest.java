@@ -32,7 +32,6 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 
-import org.avidj.zuul.core.DefaultEmbeddedLockManager;
 import org.avidj.zuul.core.LockManager;
 import org.avidj.zuul.core.LockScope;
 import org.avidj.zuul.core.LockType;
@@ -41,7 +40,7 @@ import org.junit.Test;
 
 import com.google.common.collect.ImmutableSet;
 
-public class AutoClosableLockTest {
+public abstract class AutoClosableLockTest {
   private static final String SESSION_1 = "test-session 1";
   private static final String SESSION_2 = "test-session 2";
   private LockManager underlyingLm;
@@ -51,9 +50,7 @@ public class AutoClosableLockTest {
   /**
    * @return an implementation of the underlying lock manager to be wrapped by the client library
    */
-  protected LockManager lockManager() {
-    return new DefaultEmbeddedLockManager();
-  }
+  protected abstract LockManager lockManager();
 
   @Before
   public void before() {

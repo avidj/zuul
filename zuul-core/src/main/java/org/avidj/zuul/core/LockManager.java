@@ -32,8 +32,10 @@ import java.util.Set;
 public interface LockManager {
 
   /**
-   * After a timeout all locks of a session are released if that session is not pinged or otherwise
-   * accessed through lock operations.
+   * After a timeout all locks of a session are released if that session is not kept alive through
+   * heartbeats or otherwise accessed through lock operations. 
+   * TODO: While this is currently the timeout used for all sessions, it should rather be a maximum
+   * timeout where each session (or lock) can define its own TTL.
    * 
    * @param timeoutMillis number of milliseconds until sessions time out and locks are released
    */

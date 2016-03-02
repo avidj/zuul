@@ -1,24 +1,21 @@
-* implement remaining test methods
+* AutoCloseableLock: proper downscope and downgrade of AutoCloseable locks (consider owners of nested locks)  
+* AutoCloseableLock: new autocloseable lock objects shall be initialized with the actual state of the lock path 
+* DefaultLockManager: provide blocking versions of all lock operations.
+* AutoCloseableLock: shall always block on all operations if necessary. Otherwise, try-with-resources lock blocks will be entered illegally.
+* DefaultLockManager: provide non-blocking (timeout) versions of all lock operations
+* Zuul (REST controller): upgrade / downgrade
+* Zuul (REST controller): upscope / downscope
+* Zuul (REST controller): info method shall interpret a lock path and return only a subtree of locks
+* Zuul (REST controller): info method shall return a tree of lock infos
+* Zuul (REST controller): info method shall allow to query only for one particular node w/o subtree
+* REST client: integration test with existing LockManager test suite
+* REST client: integration test with existing AutoCloseableLockManager test suite
 
-DefaultLockManager
-* provide blocking versions of all lock operations.
-* provide non-blocking (timeout) versions of all lock operations
-
-AutoCloseableLock
-* proper downscope and downgrade of AutoCloseable locks 
-** consider owners of nested locks  
-* shall always block on all operations if necessary. Otherwise, try-with-resources lock blocks will be entered illegally.
-* new autocloseable lock objects shall be initialized with the actual state of the lock path 
+Unprioritized:
 
 locks as inodes?
 --> FS?
 intention locks
-
-REST
-* proper REST interface
-* REST client 
-+ integration test with existing LockManager test suite
-+ integration test with existing AutoCloseableLockManager test suite
 
 * PUT /a/b/c?session-id # locks /a/b/c for the given session
 * PUT /?session-id&scope=deep # deep locks the whole tree
@@ -37,14 +34,8 @@ LockInfo, relation to inode?
   count
   session
 
-Better would be nested lock info
- 
-
-
 * mvn jetty:run listens on 8080 although 8090 is configured 
 * (client) library with AutoCloseable locks hiding the service
-* client to wrap the RESTful service (implements LockManager)
-* test REST client with core lock manager and AutoCloseable lock manager tests
 * write more concurrent tests (and debug concurrent test framework)
 * use proper intention locks to enable correct assertions
 * self test with more assertions

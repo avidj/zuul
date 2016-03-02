@@ -72,13 +72,18 @@ public class Zuul {
     return ACK;
   }
   
+  /**
+   * Given a session id, this method returns all information about locks held by that session.
+   * @param session the identifier of the session
+   * @param request the HTTP request, provided by the REST framework
+   * @param uriBuilder a URI builder, provided by the REST framework
+   */
   @RequestMapping(value = "/s/{id}/**", method = RequestMethod.GET)
-  public @ResponseBody Set<Lock> info(
+  @ResponseBody
+  public Set<Lock> info(
       @PathVariable("id") String session,
       HttpServletRequest request,
       UriComponentsBuilder uriBuilder) {
-    final List<String> path = getLockPath(request, session); 
-   
     Set<Lock> locks = lm.getLocks(session);
     LOG.info("query info for session {}: {}", session, Strings.join(locks));
     return locks;
@@ -96,6 +101,7 @@ public class Zuul {
    *     ({@code w})rite, default is ({@code w})write  
    * @param scope the scope of lock to obtain, possible values are ({@code s})shallow and 
    *     ({@code d})eep, default is ({@code d})eep  
+   * @param request the HTTP request, provided by the REST framework
    * @param uriBuilder builder for the result location URI
    * @return {@code true}, iff the operation was successful
    */
