@@ -10,6 +10,7 @@
 * Zuul (REST controller): info method shall allow to query only for one particular node w/o subtree
 * REST client: integration test with existing LockManager test suite
 * REST client: integration test with existing AutoCloseableLockManager test suite
+* add HATEOAS
 
 Unprioritized:
 

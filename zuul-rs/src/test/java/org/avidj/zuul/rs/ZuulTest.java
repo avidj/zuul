@@ -21,6 +21,10 @@ package org.avidj.zuul.rs;
  */
 
 import static com.jayway.restassured.module.mockmvc.RestAssuredMockMvc.*;
+import static org.hamcrest.CoreMatchers.*;
+
+import java.util.Arrays;
+import java.util.Collections;
 
 import org.avidj.zuul.core.DefaultEmbeddedLockManager;
 import org.junit.Test;
@@ -29,7 +33,151 @@ import org.springframework.http.HttpStatus;
 public class ZuulTest {
 
   @Test
-  public void testWDRoot() {
+  public void itShallCreateShallowReadLockOnRoot() {
+    final Zuul zuul = createZuul();
+    given()
+        .standaloneSetup(zuul).param("t", "r").param("s", "s")
+        .when().put("/s/1/")
+        .then().statusCode(HttpStatus.CREATED.value());
+    given()
+        .standaloneSetup(zuul)
+        .when().get("/s/1/")
+        .then().statusCode(HttpStatus.OK.value())
+        .and().body("key", hasItem(Collections.emptyList()))
+        .and().body("session", hasItem("1"))
+        .and().body("type", hasItem("READ"))
+        .and().body("scope", hasItem("SHALLOW"))
+        .and().body("count", hasItem(1));
+  }
+
+  @Test
+  public void itShallCreateShallowWriteLockOnRoot() {
+    final Zuul zuul = createZuul();
+    given()
+        .standaloneSetup(zuul).param("t", "w").param("s", "s")
+        .when().put("/s/1/")
+        .then().statusCode(HttpStatus.CREATED.value());
+    given()
+        .standaloneSetup(zuul)
+        .when().get("/s/1/")
+        .then().statusCode(HttpStatus.OK.value())
+        .and().body("key", hasItem(Collections.emptyList()))
+        .and().body("session", hasItem("1"))
+        .and().body("type", hasItem("WRITE"))
+        .and().body("scope", hasItem("SHALLOW"))
+        .and().body("count", hasItem(1));
+  }
+
+  @Test
+  public void itShallCreateDeepReadLockOnRoot() {
+    final Zuul zuul = createZuul();
+    given()
+        .standaloneSetup(zuul).param("t", "r").param("s", "d")
+        .when().put("/s/1/")
+        .then().statusCode(HttpStatus.CREATED.value());
+    given()
+        .standaloneSetup(zuul)
+        .when().get("/s/1/")
+        .then().statusCode(HttpStatus.OK.value())
+        .and().body("key", hasItem(Collections.emptyList()))
+        .and().body("session", hasItem("1"))
+        .and().body("type", hasItem("READ"))
+        .and().body("scope", hasItem("DEEP"))
+        .and().body("count", hasItem(1));
+  }
+
+  @Test
+  public void itShallCreateDeepWriteLockOnRoot() {
+    final Zuul zuul = createZuul();
+    given()
+        .standaloneSetup(zuul).param("t", "w").param("s", "d")
+        .when().put("/s/1/")
+        .then().statusCode(HttpStatus.CREATED.value());
+    given()
+        .standaloneSetup(zuul)
+        .when().get("/s/1/")
+        .then().statusCode(HttpStatus.OK.value())
+        .and().body("key", hasItem(Collections.emptyList()))
+        .and().body("session", hasItem("1"))
+        .and().body("type", hasItem("WRITE"))
+        .and().body("scope", hasItem("DEEP"))
+        .and().body("count", hasItem(1));
+  }
+
+  @Test
+  public void itShallCreateShallowReadLock() {
+    final Zuul zuul = createZuul();
+    given()
+        .standaloneSetup(zuul).param("t", "r").param("s", "s")
+        .when().put("/s/1/a")
+        .then().statusCode(HttpStatus.CREATED.value());
+    given()
+        .standaloneSetup(zuul)
+        .when().get("/s/1/a")
+        .then().statusCode(HttpStatus.OK.value())
+        .and().body("key", hasItem(Arrays.asList("a")))
+        .and().body("session", hasItem("1"))
+        .and().body("type", hasItem("READ"))
+        .and().body("scope", hasItem("SHALLOW"))
+        .and().body("count", hasItem(1));
+  }
+
+  @Test
+  public void itShallCreateShallowWriteLock() {
+    final Zuul zuul = createZuul();
+    given()
+        .standaloneSetup(zuul).param("t", "w").param("s", "s")
+        .when().put("/s/1/a/b")
+        .then().statusCode(HttpStatus.CREATED.value());
+    given()
+        .standaloneSetup(zuul)
+        .when().get("/s/1/")
+        .then().statusCode(HttpStatus.OK.value())
+        .and().body("key", hasItem(Arrays.asList("a", "b")))
+        .and().body("session", hasItem("1"))
+        .and().body("type", hasItem("WRITE"))
+        .and().body("scope", hasItem("SHALLOW"))
+        .and().body("count", hasItem(1));
+  }
+
+  @Test
+  public void itShallCreateDeepReadLock() {
+    final Zuul zuul = createZuul();
+    given()
+        .standaloneSetup(zuul).param("t", "r").param("s", "d")
+        .when().put("/s/1/a/b/c")
+        .then().statusCode(HttpStatus.CREATED.value());
+    given()
+        .standaloneSetup(zuul)
+        .when().get("/s/1/a/b/c")
+        .then().statusCode(HttpStatus.OK.value())
+        .and().body("key", hasItem(Arrays.asList("a", "b", "c")))
+        .and().body("session", hasItem("1"))
+        .and().body("type", hasItem("READ"))
+        .and().body("scope", hasItem("DEEP"))
+        .and().body("count", hasItem(1));
+  }
+
+  @Test
+  public void itShallCreateDeepWriteLock() {
+    final Zuul zuul = createZuul();
+    given()
+        .standaloneSetup(zuul).param("t", "w").param("s", "d")
+        .when().put("/s/1/a/b/c")
+        .then().statusCode(HttpStatus.CREATED.value());
+    given()
+        .standaloneSetup(zuul)
+        .when().get("/s/1/a/b/c")
+        .then().statusCode(HttpStatus.OK.value())
+        .and().body("key", hasItem(Arrays.asList("a", "b", "c")))
+        .and().body("session", hasItem("1"))
+        .and().body("type", hasItem("WRITE"))
+        .and().body("scope", hasItem("DEEP"))
+        .and().body("count", hasItem(1));
+  }
+
+  @Test
+  public void itShallRejectLockNestedIntoDeepLockOnRoot() {
     final Zuul zuul = createZuul();
     given()
         .standaloneSetup(zuul).param("t", "w").param("s", "d")
@@ -42,7 +190,7 @@ public class ZuulTest {
   }
 
   @Test
-  public void testWDNested() {
+  public void itShallRejectLockNestedIntoDeepLock() {
     final Zuul zuul = createZuul();
     given()
         .standaloneSetup(zuul).param("t", "w").param("s", "d")

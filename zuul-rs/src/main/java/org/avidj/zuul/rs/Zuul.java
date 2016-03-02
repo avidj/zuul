@@ -105,13 +105,15 @@ public class Zuul {
    * @param uriBuilder builder for the result location URI
    * @return {@code true}, iff the operation was successful
    */
-  @RequestMapping(value = "/s/{id}/**", method = RequestMethod.PUT)
+  @RequestMapping(value = "/s/{id}/**", method = { RequestMethod.POST, RequestMethod.PUT })
   public ResponseEntity<String> lock(
       @PathVariable("id") String session, 
       @RequestParam(value = "t", defaultValue = "w") String type,
       @RequestParam(value = "s", defaultValue = "s") String scope,
       HttpServletRequest request,
       UriComponentsBuilder uriBuilder) {
+    // TODO: POST: lock (create resource)
+    // TODO: PUT: upscope, downscope, lock reentry (return 226 IM used, return 404 as appropriate)
     final List<String> path = getLockPath(request, session); 
     final LockType lockType = getLockType(type);
     final LockScope lockScope = getLockScope(scope);
@@ -125,7 +127,7 @@ public class Zuul {
     headers.setLocation(uriComponents.toUri());
     return new ResponseEntity<String>(headers, httpStatus);
   }
-
+  
   /**
    * Release the given lock if it is held by the given {@code session}.
    * @param session the session id to release the lock for
