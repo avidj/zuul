@@ -20,11 +20,14 @@ package org.avidj.zuul.core;
  * #L%
  */
 
-import java.util.TimerTask;
-
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.TimerTask;
+
+/**
+ * A timer that upon timeout will release all locks held by the associated session. 
+ */
 final class SessionTimeoutTask extends TimerTask {
   private static final Logger LOG = LoggerFactory.getLogger(SessionTimeoutTask.class);
   private final LockManager lm;

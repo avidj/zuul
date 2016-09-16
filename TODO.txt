@@ -2,6 +2,7 @@
 * AutoCloseableLock: new autocloseable lock objects shall be initialized with the actual state of the lock path 
 * DefaultLockManager: provide blocking versions of all lock operations.
 * AutoCloseableLock: shall always block on all operations if necessary. Otherwise, try-with-resources lock blocks will be entered illegally.
+
 * DefaultLockManager: provide non-blocking (timeout) versions of all lock operations
 * Zuul (REST controller): upgrade / downgrade
 * Zuul (REST controller): upscope / downscope

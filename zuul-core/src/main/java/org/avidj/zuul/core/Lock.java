@@ -27,14 +27,29 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 
+/**
+ * Representation of a lock referenced by a lock tree node. The lock is associated with an 
+ * immutable composite key that represents the path to that lock in the lock tree. Also,
+ * the lock is either read or a write lock and orthogonally it may be a shallow lock 
+ * affecting only this node, or a deep lock affecting  the whole subtree rooted at this node.
+ * Each lock is associated to the session owning it. Now, as this class is immutable, any change
+ * in the state of the lock results in a new lock node to be created.
+ */
 public class Lock {
   private final int hashCode;
+  public int count;
   public String session;
   public List<String> key;
   public LockType type;
   public LockScope scope;
-  public int count;
   
+  /**
+   * @param session the session owning this lock
+   * @param path the path to this node, i.e., the lock identifier
+   * @param type the type of lock, read or write
+   * @param scope the scope of the lock, shallow or deep
+   * @return the new lock object
+   */
   public static Lock newLock(String session, List<String> path, LockType type, LockScope scope) {
     return new Lock(session, path, type, scope, 1);
   }
@@ -57,18 +72,33 @@ public class Lock {
     return Collections.unmodifiableList(intern);
   }
 
+  /**
+   * @param scope the desired lock scope
+   * @return a write lock of the given scope corresponding to this lock's path
+   */
   Lock writeLock(LockScope scope) {
     return new Lock(session, key, LockType.WRITE, scope, count + 1);
   }
 
+  /**
+   * @param scope the desired lock scope
+   * @return a read lock of the given scope corresponding to this lock's path
+   */
   Lock readLock(LockScope scope) {
     return new Lock(session, key, LockType.READ, scope, count + 1);
   }
 
+  /**
+   * @param scope the desired scope
+   * @return a lock corresponding to this lock but with the desired scope
+   */
   Lock scope(LockScope scope) {
     return new Lock(session, key, type, scope, count);
   }
 
+  /**
+   * @return a deep lock otherwise corresponding to this lock 
+   */
   Lock deepLock() {
     if ( scope == LockScope.DEEP ) {
       return this;
@@ -76,6 +106,9 @@ public class Lock {
     return new Lock(session, key, type, LockScope.DEEP, count);
   }
   
+  /**
+   * @return a shallow lock otherwise corresponding to this lock 
+   */
   Lock shallowLock() {
     if ( scope == LockScope.SHALLOW ) {
       return this;
@@ -83,6 +116,10 @@ public class Lock {
     return new Lock(session, key, type, LockScope.SHALLOW, count);
   }
 
+  /**
+   * Release this lock.
+   * @return this 
+   */
   Lock release() {
     count = count - 1;
     return this;

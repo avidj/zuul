@@ -32,7 +32,7 @@ import java.util.Set;
  */
 
 /**
- * Interface of the in-memory lock manager. All locking operations shall be implmemented atomically.
+ * Interface of the in-memory lock manager. All locking operations shall be implemented atomically.
  * That is, either they are successful or they fail completely. In other words, if an operation 
  * cannot successfully finish, it shall leave all affected objects as they were before the call.
  */

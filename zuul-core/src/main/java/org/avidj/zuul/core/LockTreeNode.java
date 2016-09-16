@@ -33,7 +33,11 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.locks.ReentrantLock;
 
-public class LockTreeNode {
+/**
+ * A node in a lock tree. A node is associated with a final key, which is the component of the lock path leading to that
+ * node. 
+ */
+class LockTreeNode {
   private static final Logger LOG = LoggerFactory.getLogger(LockTreeNode.class);
   // Mutex for lock coupling.
   private final ReentrantLock mutex = new ReentrantLock();
@@ -42,36 +46,48 @@ public class LockTreeNode {
 
   final String key;
 
-  private final Map<String, Lock> sharedLocks = Collections.synchronizedMap(new HashMap<>());
-  private final Set<Lock> deepLocks = Collections.synchronizedSet(new HashSet<>());
-
+  // The exclusive lock on this node, or null. If there is an exclusive lock then there can be no shared locks.
   private Lock exclusiveLock;
 
+  // A possibly empty map from session keys to shared locks. If not empty, then there can't be an exclusive lock.
+  private final Map<String, Lock> sharedLocks = Collections.synchronizedMap(new HashMap<>());
+
+  // The set of deep locks on this node.
+  private final Set<Lock> deepLocks = Collections.synchronizedSet(new HashSet<>());
+
+  // The number nested intention shared locks.
   int is = 0;
+
+  // The number of nested intention exclusive locks.
+  int ix = 0; 
+  
+  // The number of shared intention exclusive locks.
+  int six = 0;
   
   // The number of nested shared locks.
   int shared = 0;
   
-  int ix = 0; 
-  
   // The number of nested exclusive locks.
   int exclusive = 0;
   
-  int six = 0;
-  
   // TODO: use a patricia tree instead?
   final Map<Object, LockTreeNode> children = new HashMap<>();
-  
+
+  /* Create a new tree node with the given parent and key component. */
   static LockTreeNode treeNode(String key, LockTreeNode parent) {
     assert ( key == null || parent != null );
     return new LockTreeNode(key, parent);
   }
   
-  LockTreeNode(String key, LockTreeNode parent) {
+  private LockTreeNode(String key, LockTreeNode parent) {
     this.key = (key != null ) ? key.intern() : null;
     this.parent = parent;
   }
   
+  /**
+   * @param id the id of the child to retrieve
+   * @return the child if it exists
+   */
   public LockTreeNode getChild(String id) {
     return children.get(id);
   }
@@ -88,18 +104,30 @@ public class LockTreeNode {
         .toString();
   }
 
+  /** 
+   * @return {@code true} if this node has an exclusive lock 
+   */
   boolean hasExclusiveLock() {
     return exclusiveLock != null;
   }
 
+  /**
+   * @return the exclusive lock on this node if it exists 
+   */
   Lock getExclusiveLock() {
     return exclusiveLock;
   }
 
+  /** 
+   * @return the possibly empty (immutable) set of shared locks on this node 
+   */
   Set<Lock> getSharedLocks() {
     return Collections.unmodifiableSet(new HashSet<>(sharedLocks.values()));
   }
 
+  /** 
+   * @return the lock on this node owned by the given session, or {@code null} if none such exists 
+   */
   Lock getLock(String session) {
     if ( exclusiveLock != null ) {
       if ( exclusiveLock.session.equals(session) ) {
@@ -110,7 +138,12 @@ public class LockTreeNode {
     return sharedLocks.get(session);
   }
 
-  void addLock(Lock lock) {
+  /**
+   * Add the given lock to this node.
+   * @param lock the lock to add
+   * @throws IllegalStateException if the lock cannot be added, e.g., it's exclusive but there are already shared locks
+   */
+  void addLock(Lock lock) throws IllegalStateException {
     if ( lock.type == LockType.WRITE ) {
       Preconditions.checkState(exclusiveLock == null, "exclusive lock already exists");
       exclusiveLock = lock;

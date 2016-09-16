@@ -30,6 +30,11 @@ import java.util.Map;
 import java.util.Set;
 import java.util.TimerTask;
 
+/**
+ * A session identifies a possible owner of locks. It is associated with a lock manager,
+ * an identifier, a set of owned locks, and a timeout timer that kicks in if it was inactive
+ * for some time. 
+ */
 public class Session {
   private final LockManager lm;
   private final Map<List<String>, LockTreeNode> locks = new HashMap<>();
@@ -43,27 +48,49 @@ public class Session {
     this.id = id;
   }
   
+  /**
+   * Release all locks associated with this session.
+   */
   public void invalidate() {
     lm.release(id);
   }
   
-  public TimerTask newTimeoutTask() {
+  /**
+   * Create a new timeout task and associate it with this session.
+   * @return the new timeout task
+   */
+  TimerTask newTimeoutTask() {
     timeoutTask = new SessionTimeoutTask(lm, this);
     return timeoutTask;
   }
 
-  public void cancelTimeout() {
+  /**
+   * Cancel the current timeout task. 
+   */
+  void cancelTimeout() {
     timeoutTask.cancel();
   }
 
-  public void addLock(LockTreeNode node) {
+  /**
+   * Add the given lock tree node to the set of locks held by this session. It must already
+   * been locked at the time of calling this method.
+   * @param node the lock tree node that has been locked by this session
+   */
+  void addLock(LockTreeNode node) {
     locks.put(node.getLock(id).key, node);
   }
 
-  public void removeLock(List<String> key) {
+  /**
+   * Remove the lock with the given key from the set of locks held by this session.
+   * @param key the key of the lock that has been released
+   */
+  void removeLock(List<String> key) {
     locks.remove(key);
   }
 
+  /**
+   * @return the set of lock tree nodes that this session currently holds locks on
+   */
   public Set<LockTreeNode> getLocks() {
     return Collections.unmodifiableSet(new HashSet<LockTreeNode>(locks.values()));
   }
