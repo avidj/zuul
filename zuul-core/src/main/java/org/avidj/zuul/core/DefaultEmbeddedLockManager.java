@@ -356,8 +356,8 @@ public class DefaultEmbeddedLockManager implements EmbeddedLockManager {
     final Lock existing = node.getLock(session.id);
     assert ( existing != null );
     // TODO: upscoping shall be allowed if all nested locks belong to this session 
-    if ( scope == existing.scope ||
-        ( scope == LockScope.DEEP && node.locksInSubtree() > 1 ) ) { 
+    if ( scope == existing.scope 
+       || ( scope == LockScope.DEEP && node.locksInSubtree() > 1 ) ) { 
       return false; // there are nested locks preventing a deep lock
     }
    

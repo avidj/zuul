@@ -89,6 +89,8 @@ public class Session {
   }
 
   /**
+   * Returns all locks on this node.
+   * 
    * @return the set of lock tree nodes that this session currently holds locks on
    */
   public Set<LockTreeNode> getLocks() {

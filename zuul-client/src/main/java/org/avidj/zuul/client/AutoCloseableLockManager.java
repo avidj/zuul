@@ -59,6 +59,13 @@ public class AutoCloseableLockManager {
     return lockManager.getLocks(session);
   }
 
+  /**
+   * Obtain an auto closeable lock of the given type and scope for the given path.
+   * @param path the path to lock
+   * @param lockType the type of lock to obtain
+   * @param scope the scope of the desired lock
+   * @return the requested lock
+   */
   public AutoCloseableLock lock(List<String> path, LockType lockType, LockScope scope) {
     @SuppressWarnings("resource")
     AutoCloseableLock lock = new AutoCloseableLock(this.lockManager, this.session, path, scope);
@@ -76,12 +83,12 @@ public class AutoCloseableLockManager {
     return lock(path, LockType.READ, LockScope.SHALLOW);
   }
 
-  public AutoCloseableLock writeLock(List<String> path) {
-    return lock(path, LockType.WRITE, LockScope.SHALLOW);
-  }
-
   public AutoCloseableLock readLock(List<String> path, LockScope scope) {
     return lock(path, LockType.READ, scope);
+  }
+
+  public AutoCloseableLock writeLock(List<String> path) {
+    return lock(path, LockType.WRITE, LockScope.SHALLOW);
   }
 
   public AutoCloseableLock writeLock(List<String> path, LockScope scope) {

@@ -85,6 +85,8 @@ class LockTreeNode {
   }
   
   /**
+   * Find the child of this node with the given id.
+   * 
    * @param id the id of the child to retrieve
    * @return the child if it exists
    */
@@ -105,6 +107,8 @@ class LockTreeNode {
   }
 
   /** 
+   * Returns whether this node has an exclusive lock.
+   * 
    * @return {@code true} if this node has an exclusive lock 
    */
   boolean hasExclusiveLock() {
@@ -112,6 +116,8 @@ class LockTreeNode {
   }
 
   /**
+   * Returns the exclusive lock on this node if one exists.
+   * 
    * @return the exclusive lock on this node if it exists 
    */
   Lock getExclusiveLock() {
@@ -119,6 +125,8 @@ class LockTreeNode {
   }
 
   /** 
+   * Returns the shared locks on this node.
+   * 
    * @return the possibly empty (immutable) set of shared locks on this node 
    */
   Set<Lock> getSharedLocks() {
@@ -126,6 +134,8 @@ class LockTreeNode {
   }
 
   /** 
+   * Returns the lock on this node owned by the given session.
+   * 
    * @return the lock on this node owned by the given session, or {@code null} if none such exists 
    */
   Lock getLock(String session) {

@@ -73,6 +73,8 @@ public class Lock {
   }
 
   /**
+   * Obtain a write lock of the desired scope.
+   * 
    * @param scope the desired lock scope
    * @return a write lock of the given scope corresponding to this lock's path
    */
@@ -81,6 +83,8 @@ public class Lock {
   }
 
   /**
+   * Obtain a read lock of the desired scope.
+   * 
    * @param scope the desired lock scope
    * @return a read lock of the given scope corresponding to this lock's path
    */
@@ -89,6 +93,8 @@ public class Lock {
   }
 
   /**
+   * Change the scope of this lock according to the input.
+   * 
    * @param scope the desired scope
    * @return a lock corresponding to this lock but with the desired scope
    */
@@ -97,6 +103,8 @@ public class Lock {
   }
 
   /**
+   * Make this lock a deep lock.
+   * 
    * @return a deep lock otherwise corresponding to this lock 
    */
   Lock deepLock() {
@@ -107,6 +115,8 @@ public class Lock {
   }
   
   /**
+   * Make this lock a shallow lock.
+   * 
    * @return a shallow lock otherwise corresponding to this lock 
    */
   Lock shallowLock() {
