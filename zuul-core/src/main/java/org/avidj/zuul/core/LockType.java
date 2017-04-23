@@ -1,8 +1,8 @@
 package org.avidj.zuul.core;
 
-import java.util.List;
-
 import org.avidj.zuul.core.DefaultEmbeddedLockManager.LockTreeNodeVisitor;
+
+import java.util.List;
 
 /*
  * #%L
@@ -25,16 +25,16 @@ import org.avidj.zuul.core.DefaultEmbeddedLockManager.LockTreeNodeVisitor;
  */
 
 public enum LockType {
-  READ  ( 
-      (lm, session, path, scope) -> lm.readLock(session, path, scope),
-      n -> { n.is--; n.shared++; },
-      n -> n.is--,
-      n -> n.shared--),
-  WRITE ( 
-      (lm, session, path, scope) -> lm.writeLock(session, path, scope),
-      n -> { n.ix--; n.exclusive++; },
-      n -> n.ix--,
-      n -> n.exclusive--);
+  READ( 
+          (lm, session, path, scope) -> lm.readLock(session, path, scope),
+          n -> { n.is--; n.shared++; },
+          n -> n.is--,
+          n -> n.shared--),
+  WRITE( 
+          (lm, session, path, scope) -> lm.writeLock(session, path, scope),
+          n -> { n.ix--; n.exclusive++; },
+          n -> n.ix--,
+          n -> n.exclusive--);
   
   private final LockOperation lo;
   private final LockTreeNodeVisitor convert;
