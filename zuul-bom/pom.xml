@@ -7,21 +7,27 @@
   <version>0.0.1-SNAPSHOT</version>
   <packaging>pom</packaging>
 
+  <parent>
+    <groupId>org.avidj</groupId>
+    <artifactId>zuul</artifactId>
+    <version>0.0.1-SNAPSHOT</version>
+  </parent>
+
   <name>zuul-bom</name>
   <url>http://maven.apache.org</url>
 
   <properties>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
   </properties>
-
+<!-- 
   <distributionManagement>
     <repository>
       <id>internal-repository</id>
       <name>Internal Repository</name>
-      <url>http://172.17.0.1:8081/repository/maven-snapshots/</url>
+      <url>http://localhost:8081/repository/maven-snapshots/</url>
     </repository>
   </distributionManagement>
-
+ -->
   <dependencyManagement>
 	  <dependencies>
 	    <dependency>
