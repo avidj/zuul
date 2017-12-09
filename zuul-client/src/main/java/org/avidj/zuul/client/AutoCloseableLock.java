@@ -44,13 +44,13 @@ public class AutoCloseableLock implements AutoCloseable {
   private LockScope scope;
   private int read;
   private int write;
-  private final Stack<LockOp> locks = new Stack<>();
+  private final Stack<LockOp> locks = new Stack<>();   // a stack of open lock operations expected to be properly closed
   
   private enum LockOp {
-    READ(LockType.READ, 
-        l -> l.lockManager.release(l.session, l.path),   
-        l -> l.read++, 
-        l -> l.read--),
+    READ(LockType.READ,                                // target lock type
+        l -> l.lockManager.release(l.session, l.path), // on revert   
+        l -> l.read++,                                 // on acquire
+        l -> l.read--),                                // on release
     WRITE(LockType.WRITE, 
         l -> l.lockManager.release(l.session, l.path), 
         l -> l.write++, 
@@ -116,7 +116,7 @@ public class AutoCloseableLock implements AutoCloseable {
 
   /**
    * Acquire a shared / read lock on the resource described by this lock's path.
-   * This operation blocks until it succeeds.
+   * This operation blocks until it succeeds. // TODO: no it doesn't
    * @return this
    */
   public AutoCloseableLock readLock() {
@@ -124,7 +124,7 @@ public class AutoCloseableLock implements AutoCloseable {
       boolean success;
       LockOp op = null;
       if ( this.isWriteLocked() ) {
-        // if this is already write locked a read lock would effectively downgrade the lock
+        // if this is already write locked a read lock would effectively downgrade the lock, which we don't want
         success = lockManager.writeLock(this.session, this.path, this.scope);
         op = LockOp.WRITE;
       } else {
@@ -143,7 +143,7 @@ public class AutoCloseableLock implements AutoCloseable {
 
   /**
    * Acquire an exclusive / write lock on the resource described by this lock's path.
-   * This operation blocks until it succeeds.
+   * This operation blocks until it succeeds. // TODO: no it doesn't
    * @return this
    */
   public AutoCloseableLock writeLock() {
@@ -168,6 +168,9 @@ public class AutoCloseableLock implements AutoCloseable {
    */
   public AutoCloseableLock release() throws IllegalStateException {
     if ( locks.isEmpty() ) {
+    	// TODO: That's the correct behavior, as try-with-resources must only be entered after successful locking.
+    	// In other words, this class here must only use blocking operations of the lock manager
+//      throw new IllegalStateException("This lock cannot be released, as it's not being held.");
       return this;
     }
     synchronized ( this ) {
@@ -188,21 +191,31 @@ public class AutoCloseableLock implements AutoCloseable {
     release();
   }
 
+  /**
+   * @return {@code true}, iff the associated session owns at least a read/shared lock on the lock path
+   */
   public boolean isReadLocked() {
     return !locks.isEmpty();
   }
 
+  /**
+   * @return {@code true}, iff the associated session owns a write/exclusive lock on the lock path
+   */
   public boolean isWriteLocked() {
     return write > 0;
   }
 
+  /**
+   * TODO: cf. issue 2) it may be better if this method must also considered deep locks on the path to this node
+   * @return {@code true}, iff the associated session currently owns a deep lock on the path
+   */
   public boolean isDeepLocked() {
     return scope == LockScope.DEEP;
   }
   
   /**
    * Extend the scope of this lock to a deep lock (if it is not yet). 
-   * This operation blocks until it succeeds.
+   * This operation blocks until it succeeds. TODO: no, it doesn't
    * @return this
    */
   public AutoCloseableLock upScope() {
