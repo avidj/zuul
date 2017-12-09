@@ -462,6 +462,36 @@ public abstract class LockManagerInternalTest {
     assertThat(lm.getLocks("1"), is(equalTo(Collections.emptySet())));
   }
 
+  @Test // test for Bug 1, could be implemented by maintaining a set of owners (counters for nested locks
+  public void itShallGrantDeepIfNestedAreOwnLocks() {
+	boolean success = lm.lock("1", key(1, 2, 3), LockType.WRITE, LockScope.DEEP);
+	assertThat(success, is(true));
+	
+	success = lm.lock("1", key(1), LockType.READ, LockScope.DEEP);
+	assertThat(success, is(true));
+  }
+
+  @Test // test for Bug 1
+  public void itShallGrantIfDeepAncestorIsOwnLock() {
+    boolean success = lm.lock("1", key(1), LockType.READ, LockScope.DEEP);
+    assertThat(success, is(true));
+
+    success = lm.lock("1", key(1, 2, 3), LockType.WRITE, LockScope.DEEP);
+    assertThat(success, is(true));
+  }
+  
+  @Test // test for Bug 1
+  public void itShallUpscopeIfNestedAreOwnLocks() {
+	boolean success = lm.lock("1", key(1, 2, 3), LockType.WRITE, LockScope.DEEP);
+	assertThat(success, is(true));
+	
+	success = lm.lock("1", key(1), LockType.READ, LockScope.SHALLOW);
+	assertThat(success, is(true));
+	
+	success = lm.upScope("1", key(1), LockType.READ);
+	assertThat(success, is(true));
+  }
+
   @Test
   public void testMultiLockFailDeepSes2() {
     boolean success = 

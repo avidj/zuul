@@ -1,16 +1,22 @@
-* AutoCloseableLock: proper downscope and downgrade of AutoCloseable locks (consider owners of nested locks)  
-* AutoCloseableLock: new autocloseable lock objects shall be initialized with the actual state of the lock path 
-* DefaultLockManager: provide blocking versions of all lock operations.
-* AutoCloseableLock: shall always block on all operations if necessary. Otherwise, try-with-resources lock blocks will be entered illegally.
+Bugs
+1) DefaultLockManager: proper downscope and downgrade of locks (consider owners of nested locks)  
+2) AutoCloseableLock: new autocloseable lock objects shall be initialized with the actual state of the lock path 
+3) AutoCloseableLock: shall always block on all operations if necessary. Otherwise, try-with-resources lock blocks will be entered illegally.
+3a) DefaultLockManager: must provide blocking versions of all lock operations.
+3b) AutoCloseableLock must use the new blocking versions of all lock operations.
 
-* DefaultLockManager: provide non-blocking (timeout) versions of all lock operations
+Missing key features
 * Zuul (REST controller): upgrade / downgrade
 * Zuul (REST controller): upscope / downscope
+* Zuul (REST controller): info method shall allow to query only for one particular node w/o subtree
+* Zuul (REST controller): it shall be possible to list the children of a lock (think file systems)
 * Zuul (REST controller): info method shall interpret a lock path and return only a subtree of locks
 * Zuul (REST controller): info method shall return a tree of lock infos
-* Zuul (REST controller): info method shall allow to query only for one particular node w/o subtree
 * REST client: integration test with existing LockManager test suite
 * REST client: integration test with existing AutoCloseableLockManager test suite
+
+Nice to have
+* DefaultLockManager: provide non-blocking (timeout) versions of all lock operations
 * add HATEOAS
 
 Unprioritized:
